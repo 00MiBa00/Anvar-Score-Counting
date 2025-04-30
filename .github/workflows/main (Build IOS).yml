@@ -1,0 +1,131 @@
+name: Build project IOS
+
+on: [workflow_dispatch]
+
+jobs:
+  buildForAllSupportedPlatforms:
+    name: Build for ${{ matrix.targetPlatform }} on ${{ matrix.unityVersion }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        unity-version:
+          - 2022.3.33f1
+        os:
+          - ubuntu-latest
+        targetPlatform:
+          - iOS # Build an iOS player.
+          #- Android # Build an Android .apk standalone app.
+    steps:
+      ###########################
+      #        Checkout         #
+      ###########################
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      ###########################
+      #         Cache           #
+      ###########################
+      - uses: actions/cache@v3
+        with:
+          path: Library
+          key: Library-${{ matrix.targetPlatform }}
+          restore-keys: Library-
+
+      ###########################
+      #          Disk           #
+      ###########################
+      - if: matrix.targetPlatform == 'Android'
+        uses: jlumbroso/free-disk-space@v1.3.1
+      
+      ###########################
+      #          Build          #
+      ###########################
+      - uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          targetPlatform: ${{ matrix.targetPlatform }}
+      
+      ###########################
+      #          Upload         #
+      ###########################
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Build-${{ matrix.targetPlatform }}
+          path: build/${{ matrix.targetPlatform }}
+
+  releaseToAppStore:
+    name: Release to the App Store
+    runs-on: macos-latest
+    needs: buildForAllSupportedPlatforms
+    strategy:
+      matrix:
+        targetPlatform:
+          - iOS # Build an iOS player.
+          #- Android # Build an Android .apk standalone app.
+    steps:
+      ###########################
+      #        Checkout         #
+      ###########################
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      ###########################
+      #  Download iOS Artifact  #
+      ###########################
+      - name: Download iOS Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: Build-${{ matrix.targetPlatform }}
+          path: build/${{ matrix.targetPlatform }}
+
+      ###################
+      #  xcode-version  #
+      ###################
+      #- uses: maxim-lobanov/setup-xcode@v1
+      #  with:
+      #    xcode-version: '14.2.0'
+
+      ###########################################
+      #  Fix File Permissions and Run fastlane  #
+      ###########################################
+      - name: Fix File Permissions and Run fastlane
+        env:
+          APPLE_CONNECT_EMAIL: ${{ secrets.APPLE_CONNECT_EMAIL }}
+          APPLE_DEVELOPER_EMAIL: ${{ secrets.APPLE_DEVELOPER_EMAIL }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+          MATCH_REPOSITORY: ${{ secrets.MATCH_REPOSITORY }}
+          MATCH_DEPLOY_KEY: ${{ secrets.MATCH_DEPLOY_KEY }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+
+          APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
+          APPSTORE_KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
+          APPSTORE_P8: ${{ secrets.APPSTORE_P8 }}
+
+          IOS_BUILD_PATH: ${{ format('{0}/build/iOS', github.workspace) }}
+          IOS_BUNDLE_ID: com.bounceinn.app
+          APP_VERSION: "1.0.1"
+          PROJECT_NAME: Bounce Balls Mania
+        run: |
+          eval "$(ssh-agent -s)"
+          ssh-add - <<< "${MATCH_DEPLOY_KEY}"
+          find $IOS_BUILD_PATH -type f -name "**.sh" -exec chmod +x {} \;
+          bundle install
+          #bundle exec fastlane ios release
+          bundle exec fastlane ios beta
+          #bundle exec fastlane ios build
+
+      ####################################
+      #  Cleanup to avoid storage limit  #
+      ####################################
+      - name: Cleanup to avoid storage limit
+        if: always()
+        uses: geekyeggo/delete-artifact@v2
+        with:
+          name: build-iOS
