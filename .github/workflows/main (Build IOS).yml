@@ -87,9 +87,9 @@ jobs:
       ###################
       #  xcode-version  #
       ###################
-      #- uses: maxim-lobanov/setup-xcode@v1
-      #  with:
-      #    xcode-version: '14.2.0'
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '16.2.0'
 
       ###########################################
       #  Fix File Permissions and Run fastlane  #
@@ -109,9 +109,9 @@ jobs:
           APPSTORE_P8: ${{ secrets.APPSTORE_P8 }}
 
           IOS_BUILD_PATH: ${{ format('{0}/build/iOS', github.workspace) }}
-          IOS_BUNDLE_ID: com.bounceinn.app
-          APP_VERSION: "1.0.1"
-          PROJECT_NAME: Bounce Balls Mania
+          IOS_BUNDLE_ID: com.jrxkw.ptmlyqsd
+          APP_VERSION: "1.0.0"
+          PROJECT_NAME: Score Counting
         run: |
           eval "$(ssh-agent -s)"
           ssh-add - <<< "${MATCH_DEPLOY_KEY}"
@@ -124,8 +124,8 @@ jobs:
       ####################################
       #  Cleanup to avoid storage limit  #
       ####################################
-      - name: Cleanup to avoid storage limit
-        if: always()
-        uses: geekyeggo/delete-artifact@v2
-        with:
-          name: build-iOS
+      #- name: Cleanup to avoid storage limit
+       # if: always()
+       # uses: geekyeggo/delete-artifact@v2
+        #with:
+          #name: build-iOS
