@@ -110,7 +110,7 @@ jobs:
 
           IOS_BUILD_PATH: ${{ format('{0}/build/iOS', github.workspace) }}
           IOS_BUNDLE_ID: com.jrxkw.ptmlyqsd
-          APP_VERSION: "1.0.0"
+          APP_VERSION: "2.0"
           PROJECT_NAME: Score Games Counting
         run: |
           eval "$(ssh-agent -s)"
