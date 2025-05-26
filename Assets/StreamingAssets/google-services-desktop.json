@@ -1,0 +1,31 @@
+{
+  "project_info": {
+    "project_number": "464545236718",
+    "project_id": "score-counting",
+    "storage_bucket": "score-counting.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:464545236718:ios:448af8d201900d756495ff",
+        "android_client_info": {
+          "package_name": "com.jrxkw.ptmlyqsd"
+        }
+      },
+      "api_key": [
+        {
+          "current_key": "AIzaSyDqtXWYOvKPYj1Momv_DnpwvjFhL_QLeOQ"
+        }
+      ],
+      "services": {
+        "analytics_service": {
+          "status": 0
+        },
+        "appinvite_service": {
+          "status": 1
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -3868,9 +3868,9 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 36140081}
-        m_TargetAssemblyTypeName: FullController, Assembly-CSharp
-        m_MethodName: OpenPrivacy
+      - m_Target: {fileID: 1949975668}
+        m_TargetAssemblyTypeName: PrivacyPolicyLoader, Assembly-CSharp
+        m_MethodName: LoadURL
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -9461,6 +9461,7 @@ GameObject:
   - component: {fileID: 1949975666}
   - component: {fileID: 1949975665}
   - component: {fileID: 1949975664}
+  - component: {fileID: 1949975668}
   m_Layer: 5
   m_Name: ScoreCounterCanvas
   m_TagString: Untagged
@@ -9554,6 +9555,19 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0, y: 0}
+--- !u!114 &1949975668
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1949975663}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c47d29a68aa5e4e918c487c0c6a001a7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  privacyLink: https://scoregamescounting.com/privacy-policy.html
 --- !u!1 &1954377189
 GameObject:
   m_ObjectHideFlags: 0
