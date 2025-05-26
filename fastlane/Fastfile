@@ -1,12 +1,10 @@
-org, repo = (ENV["GITHUB_REPOSITORY"]||"").split("/")
-match_org, match_repo = (ENV["MATCH_REPOSITORY"]||"").split("/")
-
-#before_all do
-  # Встановити і використати певну версію Xcode
-#  xcversion(version: "14.2.0")
-#end
+org, repo = (ENV["GITHUB_REPOSITORY"] || "").split("/")
+match_org, match_repo = (ENV["MATCH_REPOSITORY"] || "").split("/")
 
 platform :ios do
+  ########################################
+  # One-time setup for Match repository
+  ########################################
   lane :init_ci do
     github_action(
       api_token: ENV["GH_PAT"],
@@ -18,31 +16,30 @@ platform :ios do
     )
   end
 
-  desc "Sync codesigning certificates"
+  ########################################
+  # Use certs from match repo (readonly)
+  ########################################
   lane :sync_certificates do
     app_store_connect_api_key(
       key_id: ENV["APPSTORE_KEY_ID"],
       issuer_id: ENV["APPSTORE_ISSUER_ID"],
-      key_content: ENV['APPSTORE_P8']
+      key_content: ENV["APPSTORE_P8"]
     )
-
-    main_app_bundle_id = ENV["IOS_BUNDLE_ID"]
-    #extension_bundle_id = "#{ENV["IOS_BUNDLE_ID"]}.OneSignalNotificationServiceExtension"
 
     match(
       type: "appstore",
       storage_mode: "git",
       git_url: "git@github.com:#{match_org}/#{match_repo}.git",
-      #app_identifier: [main_app_bundle_id, extension_bundle_id],
-      app_identifier: [main_app_bundle_id],
-      readonly: false
+      app_identifier: [ENV["IOS_BUNDLE_ID"]],
+      readonly: true
     )
   end
 
-  desc "Deliver a new Release build to the App Store"
-  lane :release do
+  ########################################
+  # Build + Upload to App Store Connect
+  ########################################
+  lane :build_and_upload do
     build
-    deliver
     upload_to_app_store(
       submit_for_review: false,
       automatic_release: false,
@@ -52,107 +49,62 @@ platform :ios do
     )
   end
 
-  desc "Deliver a new Beta build to Apple TestFlight"
-  lane :beta do
-    # Missing Export Compliance can also be set through Deliverfile
-    update_info_plist(
-      xcodeproj: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj",
-      plist_path: 'Info.plist',
-      block: proc do |plist|
-        plist['ITSAppUsesNonExemptEncryption'] = false
-      end
-    )
-
-    # Update iOS Deployment Target
-    update_info_plist(
-      xcodeproj: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj",
-      plist_path: 'Info.plist',
-      block: proc do |plist|
-        plist['MinimumOSVersion'] = '11.0'
-        plist['NSLocationWhenInUseUsageDescription'] = 'Allow access to location for app usage' # Добавив ось цей фрагмент, адже проблеми із скачуванням із тест флая
-      end
-    )
-
-    build
-    upload_to_testflight(skip_waiting_for_build_processing: true)
-  end
-
-  desc "List Provisioning Profiles"
-  lane :list_profiles do
-    sh "security find-identity -v -p codesigning"
-  end
-
-  desc "Install cocoapods"
-    lane :install_pods do
-      cocoapods(
-          clean: true,
-          use_bundle_exec: false,
-          repo_update: true,
-          podfile: "#{ENV['IOS_BUILD_PATH']}/iOS/Podfile"
-    )
-  end
-
-  desc "Create .ipa"
+  ########################################
+  # Build only
+  ########################################
   lane :build do
     setup_ci
     sync_certificates
-    list_profiles
-
-    # Unity has specific requirements around codesigning that we have to handle
-    # See https://github.com/fastlane/fastlane/discussions/17458 for context
-   
-    # Automatic Signing for Unity-iPhone Target
-    update_code_signing_settings(
-      use_automatic_signing: true,
-      path: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj"
-    )
-
-    # Manual Signing for OneSignalNotificationServiceExtension
-    #update_code_signing_settings(
-    #  use_automatic_signing: false,
-    #  team_id: ENV["sigh_#{ENV['IOS_BUNDLE_ID']}_appstore_team-id"],
-    #  code_sign_identity: "iPhone Distribution",
-    #  targets: "OneSignalNotificationServiceExtension",
-    #  path: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj",
-    #  profile_name: ENV["sigh_#{ENV['IOS_BUNDLE_ID']}.OneSignalNotificationServiceExtension_appstore_profile-name"],
-    #  profile_uuid: ENV["sigh_#{ENV['IOS_BUNDLE_ID']}.OneSignalNotificationServiceExtension_appstore"]
-    #)
 
     update_code_signing_settings(
       use_automatic_signing: false,
       team_id: ENV["sigh_#{ENV['IOS_BUNDLE_ID']}_appstore_team-id"],
-      code_sign_identity: 'iPhone Distribution',
-      targets: 'Unity-iPhone',
+      code_sign_identity: "iPhone Distribution",
+      targets: "Unity-iPhone",
       path: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj",
       profile_name: ENV["sigh_#{ENV['IOS_BUNDLE_ID']}_appstore_profile-name"],
       profile_uuid: ENV["sigh_#{ENV['IOS_BUNDLE_ID']}_appstore"]
     )
 
-    # Update version & build number
-     version_number = ENV['APP_VERSION'] || '1.0.0'
-     increment_version_number(version_number: version_number, xcodeproj: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj")
-     increment_build_number({ build_number: latest_testflight_build_number(version: version_number, app_identifier: ENV['IOS_BUNDLE_ID']) + 1, xcodeproj: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj"}) 
-    
-    # Install pods
-    #install_pods
+    version_number = ENV["APP_VERSION"] || "1.0.0"
+    increment_version_number(
+      version_number: version_number,
+      xcodeproj: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj"
+    )
 
-    build_app( #alias: gym
-      #workspace: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcworkspace",
+    increment_build_number(
+      build_number: latest_testflight_build_number(
+        version: version_number,
+        app_identifier: ENV["IOS_BUNDLE_ID"]
+      ) + 1,
+      xcodeproj: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj"
+    )
+
+    build_app(
       project: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj",
-      scheme: 'Unity-iPhone',
-      xcargs: '-allowProvisioningUpdates',
-      #destination: 'generic/platform=iOS' # Виправити формат
-      #destination: "platform=iOS Simulator, id=0FA23C4A-0E4A-4F03-9F6C-32122603E2DA, OS=16.2, name=iPhone 14"
+      scheme: "Unity-iPhone",
+      xcargs: "-allowProvisioningUpdates",
       export_options: {
-        method: 'app-store',
-        uploadBitcode: false, # Вимкнути біткод
-        compileBitcode: false, # Вимкнути компіляцію біткоду
-        #uploadSymbols: true,
-        #provisioningProfiles: {
-        #  'com.TestCI.TestCI': 'Match AppStore com.TestCI.TestCI'
-        #}
+        method: "app-store",
+        uploadBitcode: false,
+        compileBitcode: false
       }
     )
   end
 
+  ########################################
+  # Debugging & tools
+  ########################################
+  lane :list_profiles do
+    sh "security find-identity -v -p codesigning"
+  end
+
+  lane :install_pods do
+    cocoapods(
+      clean: true,
+      use_bundle_exec: false,
+      repo_update: true,
+      podfile: "#{ENV['IOS_BUILD_PATH']}/iOS/Podfile"
+    )
+  end
 end
