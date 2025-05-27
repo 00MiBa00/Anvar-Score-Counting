@@ -1,10 +1,14 @@
-name: iOS Initial Setup
+name: iOS Build and Deploy
 
-on: workflow_dispatch
+on:
+  workflow_run:
+    workflows: ['Generate iOS Certificates']
+    types: [completed]
+  workflow_dispatch:
 
 jobs:
-  setup:
-    runs-on: ubuntu-latest
+  build_and_deploy:
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -13,11 +17,33 @@ jobs:
           ruby-version: 3.2
           bundler-cache: true
 
-      - name: Init Fastlane Match
-        run: bundle exec fastlane ios init_ci
+      - name: Install CocoaPods
+        run: bundle exec fastlane ios install_pods
+        env:
+          IOS_BUILD_PATH: ${{ secrets.IOS_BUILD_PATH }}
+
+      - name: Build and Upload to App Store
+        run: bundle exec fastlane ios build_and_upload
         env:
           APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
           APPSTORE_KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
           APPSTORE_P8: ${{ secrets.APPSTORE_P8 }}
-          GH_PAT: ${{ secrets.GH_PAT }}
+          IOS_BUNDLE_ID: ${{ secrets.IOS_BUNDLE_ID }}
+          NOTSERVICE_BUNDLE_ID: ${{ secrets.NOTSERVICE_BUNDLE_ID }}
+          IOS_BUILD_PATH: ${{ secrets.IOS_BUILD_PATH }}
+          APP_VERSION: ${{ github.ref_name }}  # Использует имя ветки/тега как версию
           MATCH_REPOSITORY: ${{ secrets.MATCH_REPOSITORY }}
+          # Автоматически сгенерированные match переменные:
+          sigh_${{ secrets.IOS_BUNDLE_ID }}_appstore_team-id: ${{ secrets.IOS_TEAM_ID }}
+          sigh_${{ secrets.IOS_BUNDLE_ID }}_appstore_profile-name: ${{ secrets.IOS_PROFILE_NAME }}
+          sigh_${{ secrets.NOTSERVICE_BUNDLE_ID }}_appstore_team-id: ${{ secrets.NOTSERVICE_TEAM_ID }}
+          sigh_${{ secrets.NOTSERVICE_BUNDLE_ID }}_appstore_profile-name: ${{ secrets.NOTSERVICE_PROFILE_NAME }}
+
+      - name: Upload Build Artifacts
+        if: always()  # Загружает артефакты даже при неудачной сборке
+        uses: actions/upload-artifact@v3
+        with:
+          name: iOS-Build-Output
+          path: |
+            ${{ secrets.IOS_BUILD_PATH }}/iOS/build
+            fastlane/logs
