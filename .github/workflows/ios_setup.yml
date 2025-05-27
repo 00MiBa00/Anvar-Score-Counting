@@ -17,22 +17,51 @@ jobs:
           ruby-version: 3.2
           bundler-cache: true
 
+      - name: Setup SSH for Match
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.MATCH_DEPLOY_KEY }}" > ~/.ssh/match_key
+          chmod 600 ~/.ssh/match_key
+          
+          # Configure SSH to use the correct key
+          cat <<EOT >> ~/.ssh/config
+          Host github.com
+            HostName github.com
+            IdentityFile ~/.ssh/match_key
+            IdentitiesOnly yes
+            User git
+          EOT
+          
+          chmod 400 ~/.ssh/config
+          ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Verify SSH Connection
+        run: |
+          eval "$(ssh-agent -s)"
+          ssh-add -l
+          ssh -T git@github.com || true
+
       - name: Install CocoaPods
         run: bundle exec fastlane ios install_pods
         env:
           IOS_BUILD_PATH: ${{ secrets.IOS_BUILD_PATH }}
 
-      - name: Build and Upload to App Store
-        run: bundle exec fastlane ios build_and_upload
+      - name: Sync Certificates
+        run: bundle exec fastlane ios sync_certificates
         env:
+          GIT_SSH_COMMAND: "ssh -i ~/.ssh/match_key -o IdentitiesOnly=yes"
           APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
           APPSTORE_KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
           APPSTORE_P8: ${{ secrets.APPSTORE_P8 }}
           IOS_BUNDLE_ID: ${{ secrets.IOS_BUNDLE_ID }}
           NOTSERVICE_BUNDLE_ID: ${{ secrets.NOTSERVICE_BUNDLE_ID }}
-          IOS_BUILD_PATH: ${{ secrets.IOS_BUILD_PATH }}
-          APP_VERSION: ${{ github.ref_name }}  # Использует имя ветки/тега как версию
           MATCH_REPOSITORY: ${{ secrets.MATCH_REPOSITORY }}
+
+      - name: Build and Upload to App Store
+        run: bundle exec fastlane ios build_and_upload
+        env:
+          IOS_BUILD_PATH: ${{ secrets.IOS_BUILD_PATH }}
+          APP_VERSION: ${{ github.ref_name }}
           # Автоматически сгенерированные match переменные:
           sigh_${{ secrets.IOS_BUNDLE_ID }}_appstore_team-id: ${{ secrets.IOS_TEAM_ID }}
           sigh_${{ secrets.IOS_BUNDLE_ID }}_appstore_profile-name: ${{ secrets.IOS_PROFILE_NAME }}
@@ -40,7 +69,7 @@ jobs:
           sigh_${{ secrets.NOTSERVICE_BUNDLE_ID }}_appstore_profile-name: ${{ secrets.NOTSERVICE_PROFILE_NAME }}
 
       - name: Upload Build Artifacts
-        if: always()  # Загружает артефакты даже при неудачной сборке
+        if: always()
         uses: actions/upload-artifact@v3
         with:
           name: iOS-Build-Output
