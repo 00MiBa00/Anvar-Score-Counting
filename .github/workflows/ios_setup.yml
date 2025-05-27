@@ -23,7 +23,6 @@ jobs:
           echo "${{ secrets.MATCH_DEPLOY_KEY }}" > ~/.ssh/match_key
           chmod 600 ~/.ssh/match_key
           
-          # Configure SSH to use the correct key
           cat <<EOT >> ~/.ssh/config
           Host github.com
             HostName github.com
@@ -62,7 +61,6 @@ jobs:
         env:
           IOS_BUILD_PATH: ${{ secrets.IOS_BUILD_PATH }}
           APP_VERSION: ${{ github.ref_name }}
-          # Автоматически сгенерированные match переменные:
           sigh_${{ secrets.IOS_BUNDLE_ID }}_appstore_team-id: ${{ secrets.IOS_TEAM_ID }}
           sigh_${{ secrets.IOS_BUNDLE_ID }}_appstore_profile-name: ${{ secrets.IOS_PROFILE_NAME }}
           sigh_${{ secrets.NOTSERVICE_BUNDLE_ID }}_appstore_team-id: ${{ secrets.NOTSERVICE_TEAM_ID }}
@@ -70,7 +68,7 @@ jobs:
 
       - name: Upload Build Artifacts
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: iOS-Build-Output
           path: |
