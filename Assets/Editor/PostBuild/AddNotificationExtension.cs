@@ -141,9 +141,10 @@ class NotificationService: UNNotificationServiceExtension {
         mainCapabilityManager.AddBackgroundModes(BackgroundModesOptions.RemoteNotifications);
         mainCapabilityManager.WriteToFile();
 
+// **Уже не вызываем ReadFromFile здесь!**
         project.AddFrameworkToProject(mainTarget, "UserNotifications.framework", false);
-        project.ReadFromFile(projectPath);
         project.AddBuildProperty(mainTarget, "CODE_SIGN_ENTITLEMENTS", relativeMainEntitlementsPath);
+
         project.WriteToFile(projectPath);
     }
 }
