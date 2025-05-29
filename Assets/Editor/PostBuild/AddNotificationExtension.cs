@@ -2,7 +2,8 @@ using UnityEditor;
 using UnityEditor.Callbacks;
 using UnityEditor.iOS.Xcode;
 using UnityEditor.iOS.Xcode.Extensions;
-using UnityEngine;
+using System.Diagnostics;
+
 using System.IO;
 
 public class AddNotificationExtension
@@ -140,11 +141,92 @@ class NotificationService: UNNotificationServiceExtension {
         mainCapabilityManager.AddPushNotifications(false);
         mainCapabilityManager.AddBackgroundModes(BackgroundModesOptions.RemoteNotifications);
         mainCapabilityManager.WriteToFile();
-
-// **Уже не вызываем ReadFromFile здесь!**
+        
         project.AddFrameworkToProject(mainTarget, "UserNotifications.framework", false);
         project.AddBuildProperty(mainTarget, "CODE_SIGN_ENTITLEMENTS", relativeMainEntitlementsPath);
 
         project.WriteToFile(projectPath);
+        
+        string newPlistPath = Path.Combine(path, "Info.plist");
+        PlistDocument plist = new PlistDocument();
+        plist.ReadFromFile(newPlistPath);
+
+        plist.root.SetString("NSUserTrackingUsageDescription", "Your data will be used to provide you a better and personalized ad experience.");
+        plist.root.SetString("NSPhotoLibraryUsageDescription", "Allow to access photo library.");
+        plist.root.SetString("NSCameraUsageDescription", "Allow to access camera.");
+        plist.root.SetString("NSMicrophoneUsageDescription", "Allow to access microphone.");
+        plist.root.SetBoolean("ITSAppUsesNonExemptEncryption", false);
+
+        var customDict = plist.root.CreateDict("NSAppTransportSecurity");
+        customDict.SetBoolean("NSAllowsArbitraryLoads", true);
+        customDict.SetBoolean("NSAllowsArbitraryLoadsInWebContent", true);
+        customDict.SetBoolean("NSAllowsLocalNetworking", true);
+        customDict.SetBoolean("NSAllowsArbitraryLoadsForMedia", true);
+
+        File.WriteAllText(newPlistPath, plist.WriteToString());
+        
+        
+        InitPodFile(path);
+        
+        System.Threading.Thread.Sleep(5000);
+        
+        RunPodInstall(path);
     }
+
+    private static void InitPodFile(string pathToBuiltProject)
+    {
+        string podfilePath = Path.Combine(pathToBuiltProject, "Podfile");
+        
+        string podfileContent = @"
+source 'https://cdn.cocoapods.org/'
+source 'https://github.com/CocoaPods/Specs'
+
+platform :ios, '13.0'
+
+target 'UnityFramework' do
+  pod 'AppsFlyerFramework', '6.16.2'
+  pod 'Firebase/Core', '11.10.0'
+  pod 'Firebase/Messaging', '11.10.0'
+  pod 'Firebase/RemoteConfig', '11.10.0'
+  pod 'UnityAds', '~> 4.12.0'
+end
+target 'Unity-iPhone' do
+end
+use_frameworks! :linkage => :static
+target 'notifications' do
+  pod 'Firebase/Core', '11.10.0'
+  pod 'Firebase/Messaging', '11.10.0'
+end
+
+";
+        
+        File.WriteAllText(podfilePath, podfileContent);
+
+        UnityEngine.Debug.Log("Podfile успешно создан по пути: " + podfilePath);
+    }
+
+    private static void RunPodInstall(string iosBuildPath)
+    {
+        ProcessStartInfo startInfo = new ProcessStartInfo();
+        startInfo.FileName = "/usr/local/bin/pod";
+        startInfo.Arguments = "install";
+        startInfo.WorkingDirectory = iosBuildPath;
+        startInfo.RedirectStandardOutput = true;
+        startInfo.RedirectStandardError = true;
+        startInfo.UseShellExecute = false;
+
+        // Добавляем нужные переменные окружения для UTF-8
+        startInfo.EnvironmentVariables["LANG"] = "en_US.UTF-8";
+        startInfo.EnvironmentVariables["LC_ALL"] = "en_US.UTF-8";
+
+        Process process = Process.Start(startInfo);
+        string output = process.StandardOutput.ReadToEnd();
+        string error = process.StandardError.ReadToEnd();
+        process.WaitForExit();
+
+        UnityEngine.Debug.Log("pod install output: " + output);
+        if (!string.IsNullOrEmpty(error))
+            UnityEngine.Debug.LogError("pod install error: " + error);
+    }
+
 }
