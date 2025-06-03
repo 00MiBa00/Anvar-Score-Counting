@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
-using System.Threading.Tasks;
 using AppsFlyerSDK;
 using Castle.Core.Internal;
 using Firebase.Messaging;
@@ -11,7 +10,6 @@ using Unity.Advertisement.IosSupport;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.Networking;
-using Firebase;
 
 public class MyBrainStoppedWorkingHere : MonoBehaviour, IAppsFlyerConversionData
 {
