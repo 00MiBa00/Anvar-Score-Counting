@@ -89,8 +89,8 @@ platform :ios do
           use_bundle_exec: false,
           repo_update: true,
           podfile: "#{ENV['IOS_BUILD_PATH']}/iOS/Podfile"
-    )
-  end
+      )
+    end
 
   desc "Create .ipa"
 lane :build do
@@ -154,4 +154,4 @@ lane :build do
     raise ex
   end
 end
-
+end
