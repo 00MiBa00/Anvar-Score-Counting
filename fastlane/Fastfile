@@ -156,5 +156,3 @@ match_org, match_repo = (ENV["MATCH_REPOSITORY"]||"").split("/")
       }
     )
   end
-
-end
