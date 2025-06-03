@@ -93,30 +93,16 @@ platform :ios do
   end
 
   desc "Create .ipa"
-  lane :build do
+lane :build do
+  begin
     setup_ci
     sync_certificates
     list_profiles
 
-    # Unity has specific requirements around codesigning that we have to handle
-    # See https://github.com/fastlane/fastlane/discussions/17458 for context
-   
-    # Automatic Signing for Unity-iPhone Target
     update_code_signing_settings(
       use_automatic_signing: true,
       path: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj"
     )
-
-    # Manual Signing for OneSignalNotificationServiceExtension
-    #update_code_signing_settings(
-    #  use_automatic_signing: false,
-    #  team_id: ENV["sigh_#{ENV['IOS_BUNDLE_ID']}_appstore_team-id"],
-    #  code_sign_identity: "iPhone Distribution",
-    #  targets: "OneSignalNotificationServiceExtension",
-    #  path: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj",
-    #  profile_name: ENV["sigh_#{ENV['IOS_BUNDLE_ID']}.OneSignalNotificationServiceExtension_appstore_profile-name"],
-    #  profile_uuid: ENV["sigh_#{ENV['IOS_BUNDLE_ID']}.OneSignalNotificationServiceExtension_appstore"]
-    #)
 
     update_code_signing_settings(
       use_automatic_signing: false,
@@ -127,6 +113,7 @@ platform :ios do
       profile_name: ENV["sigh_#{ENV['IOS_BUNDLE_ID']}_appstore_profile-name"],
       profile_uuid: ENV["sigh_#{ENV['IOS_BUNDLE_ID']}_appstore"]
     )
+
     update_code_signing_settings(
       use_automatic_signing: false,
       team_id: ENV["sigh_#{ENV['IOS_BUNDLE_ID']}.notifications_appstore_team-id"],
@@ -137,35 +124,33 @@ platform :ios do
       profile_uuid: ENV["sigh_#{ENV['IOS_BUNDLE_ID']}.notifications_appstore"]
     )
 
+    version_number = ENV['APP_VERSION']  '1.0.0'
+    increment_version_number(version_number: version_number, xcodeproj: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj")
+    increment_build_number({
+      build_number: latest_testflight_build_number(version: version_number, app_identifier: ENV['IOS_BUNDLE_ID']) + 1,
+      xcodeproj: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj"
+    })
 
-    # Update version & build number
-     version_number = ENV['APP_VERSION'] || '1.0.0'
-     increment_version_number(version_number: version_number, xcodeproj: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj")
-     increment_build_number({ build_number: latest_testflight_build_number(version: version_number, app_identifier: ENV['IOS_BUNDLE_ID']) + 1, xcodeproj: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj"}) 
-    
-    # Install pods
     install_pods
 
-    build_app( #alias: gym
+    build_app(
       workspace: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcworkspace",
-      #project: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj",
       scheme: 'Unity-iPhone',
       xcargs: '-allowProvisioningUpdates',
-      #destination: 'generic/platform=iOS' # Виправити формат
-      #destination: "platform=iOS Simulator, id=0FA23C4A-0E4A-4F03-9F6C-32122603E2DA, OS=16.2, name=iPhone 14"
       export_options: {
         method: 'app-store',
-        uploadBitcode: false, # Вимкнути біткод
-        compileBitcode: false, # Вимкнути компіляцію біткоду
-        #uploadSymbols: true,
-        #provisioningProfiles: {
-        #  'com.TestCI.TestCI': 'Match AppStore com.TestCI.TestCI'
-        #}
+        uploadBitcode: false,
+        compileBitcode: false,
         provisioningProfiles: {
-        "#{ENV['IOS_BUNDLE_ID']}" => ENV["sigh_#{ENV['IOS_BUNDLE_ID']}_appstore_profile-name"],
-        "#{ENV['IOS_BUNDLE_ID']}.notifications" => ENV["sigh_#{ENV['IOS_BUNDLE_ID']}.notifications_appstore_profile-name"]
+          "#{ENV['IOS_BUNDLE_ID']}" => ENV["sigh_#{ENV['IOS_BUNDLE_ID']}_appstore_profile-name"],
+          "#{ENV['IOS_BUNDLE_ID']}.notifications" => ENV["sigh_#{ENV['IOS_BUNDLE_ID']}.notifications_appstore_profile-name"]
         }
       }
     )
+
+  rescue => ex
+    UI.error("❌ Build failed: #{ex}")
+    sh("cat ~/Library/Logs/gym/ScoreCounting-Unity-iPhone.log  echo 'Log not found'")
+    raise ex
   end
 end
