@@ -150,66 +150,8 @@ lane :build do
 
   rescue => ex
     UI.error("❌ Build failed: #{ex}")
-    desc "Create .ipa"
-lane :build do
-  begin
-    setup_ci
-    sync_certificates
-    list_profiles
-
-    update_code_signing_settings(
-      use_automatic_signing: true,
-      path: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj"
-    )
-
-    update_code_signing_settings(
-      use_automatic_signing: false,
-      team_id: ENV["sigh_#{ENV['IOS_BUNDLE_ID']}_appstore_team-id"],
-      code_sign_identity: 'iPhone Distribution',
-      targets: 'Unity-iPhone',
-      path: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj",
-      profile_name: ENV["sigh_#{ENV['IOS_BUNDLE_ID']}_appstore_profile-name"],
-      profile_uuid: ENV["sigh_#{ENV['IOS_BUNDLE_ID']}_appstore"]
-    )
-
-    update_code_signing_settings(
-      use_automatic_signing: false,
-      team_id: ENV["sigh_#{ENV['IOS_BUNDLE_ID']}.notifications_appstore_team-id"],
-      code_sign_identity: 'iPhone Distribution',
-      targets: 'notifications',
-      path: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj",
-      profile_name: ENV["sigh_#{ENV['IOS_BUNDLE_ID']}.notifications_appstore_profile-name"],
-      profile_uuid: ENV["sigh_#{ENV['IOS_BUNDLE_ID']}.notifications_appstore"]
-    )
-
-    version_number = ENV['APP_VERSION'] || '1.0.0'
-    increment_version_number(version_number: version_number, xcodeproj: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj")
-    increment_build_number({
-      build_number: latest_testflight_build_number(version: version_number, app_identifier: ENV['IOS_BUNDLE_ID']) + 1,
-      xcodeproj: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj"
-    })
-
-    install_pods
-
-    build_app(
-      workspace: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcworkspace",
-      scheme: 'Unity-iPhone',
-      xcargs: '-allowProvisioningUpdates',
-      export_options: {
-        method: 'app-store',
-        uploadBitcode: false,
-        compileBitcode: false,
-        provisioningProfiles: {
-          "#{ENV['IOS_BUNDLE_ID']}" => ENV["sigh_#{ENV['IOS_BUNDLE_ID']}_appstore_profile-name"],
-          "#{ENV['IOS_BUNDLE_ID']}.notifications" => ENV["sigh_#{ENV['IOS_BUNDLE_ID']}.notifications_appstore_profile-name"]
-        }
-      }
-    )
-
-  rescue => ex
-    UI.error("❌ Build failed: #{ex}")
-    sh("cat ~/Library/Logs/gym/ScoreCounting-Unity-iPhone.log  echo 'Log not found'")
+    sh("cat ~/Library/Logs/gym/ScoreCounting-Unity-iPhone.log || echo 'Log not found'")
     raise ex
   end
 end
-end
+
