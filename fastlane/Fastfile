@@ -161,6 +161,10 @@ platform :ios do
         #provisioningProfiles: {
         #  'com.TestCI.TestCI': 'Match AppStore com.TestCI.TestCI'
         #}
+        provisioningProfiles: {
+        "#{ENV['IOS_BUNDLE_ID']}" => ENV["sigh_#{ENV['IOS_BUNDLE_ID']}_appstore_profile-name"],
+        "#{ENV['IOS_BUNDLE_ID']}.notifications" => ENV["sigh_#{ENV['IOS_BUNDLE_ID']}.notifications_appstore_profile-name"]
+        }
       }
     )
   end
