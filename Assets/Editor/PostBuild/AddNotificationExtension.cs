@@ -202,14 +202,12 @@ end
 ";
 
         File.WriteAllText(podfilePath, podfileContent);
-        UnityEngine.Debug.Log("Podfile успешно создан по пути: " + podfilePath);
-        UnityEngine.Debug.Log("Содержимое Podfile:\n" + podfileContent); // ✅ логируем
     }
 
     private static void RunPodInstall(string iosBuildPath)
     {
         ProcessStartInfo startInfo = new ProcessStartInfo();
-        startInfo.FileName = "/usr/local/bin/pod";
+        startInfo.FileName = "pod";
         startInfo.Arguments = "install";
         startInfo.WorkingDirectory = iosBuildPath;
         startInfo.RedirectStandardOutput = true;
