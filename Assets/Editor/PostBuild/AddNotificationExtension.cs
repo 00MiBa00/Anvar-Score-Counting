@@ -8,7 +8,7 @@ using System.IO;
 
 public class AddNotificationExtension
 {
-    [PostProcessBuild]
+    [PostProcessBuild(9999)]
     public static void OnPostProcessBuild(BuildTarget buildTarget, string path)
     {
         if (buildTarget != BuildTarget.iOS)
@@ -168,7 +168,7 @@ class NotificationService: UNNotificationServiceExtension {
         
         InitPodFile(path);
         
-        System.Threading.Thread.Sleep(5000);
+        System.Threading.Thread.Sleep(3000);
         
         RunPodInstall(path);
     }
@@ -176,7 +176,7 @@ class NotificationService: UNNotificationServiceExtension {
     private static void InitPodFile(string pathToBuiltProject)
     {
         string podfilePath = Path.Combine(pathToBuiltProject, "Podfile");
-        
+
         string podfileContent = @"
 source 'https://cdn.cocoapods.org/'
 
@@ -188,6 +188,8 @@ target 'UnityFramework' do
   pod 'AppsFlyerFramework', '6.16.2'
   pod 'FirebaseAnalytics', '11.10.0'
   pod 'Firebase/Messaging', '11.10.0'
+  pod 'Firebase/RemoteConfig', '11.10.0'
+  pod 'UnityAds', '~> 4.12.0'
 end
 
 target 'Unity-iPhone' do
@@ -197,12 +199,11 @@ target 'notifications' do
   pod 'FirebaseAnalytics', '11.10.0'
   pod 'Firebase/Messaging', '11.10.0'
 end
-
 ";
-        
-        File.WriteAllText(podfilePath, podfileContent);
 
+        File.WriteAllText(podfilePath, podfileContent);
         UnityEngine.Debug.Log("Podfile успешно создан по пути: " + podfilePath);
+        UnityEngine.Debug.Log("Содержимое Podfile:\n" + podfileContent); // ✅ логируем
     }
 
     private static void RunPodInstall(string iosBuildPath)
