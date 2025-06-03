@@ -87,9 +87,9 @@ jobs:
       ###################
       #  xcode-version  #
       ###################
-      #- uses: maxim-lobanov/setup-xcode@v1
-      #  with:
-      #    xcode-version: '14.2.0'
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '16.2.0'
 
       ###########################################
       #  Fix File Permissions and Run fastlane  #
@@ -124,8 +124,8 @@ jobs:
       ####################################
       #  Cleanup to avoid storage limit  #
       ####################################
-      - name: Cleanup to avoid storage limit
-        if: always()
-        uses: geekyeggo/delete-artifact@v2
-        with:
-          name: build-iOS
+      #- name: Cleanup to avoid storage limit
+        #if: always()
+        #uses: geekyeggo/delete-artifact@v2
+        #with:
+          #name: build-iOS
