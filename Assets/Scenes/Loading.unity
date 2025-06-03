@@ -38,7 +38,7 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 0}
-  m_IndirectSpecularColor: {r: 0.44657844, g: 0.49641263, b: 0.57481724, a: 1}
+  m_IndirectSpecularColor: {r: 0.44657844, g: 0.49641222, b: 0.57481676, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -578,7 +578,7 @@ MonoBehaviour:
   appsflyerDevID: zLJM3rrDukmFnbWfRPYgRV
   IOS_ID: 6593675269
   sleepingObjects:
-  - {fileID: 0}
+  - {fileID: 643866383}
 --- !u!1 &160219041 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 1194958788215328590, guid: a4021124f079b4d1e90ce1253fd9fe1d, type: 3}
@@ -607,13 +607,14 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 643866384}
+  - component: {fileID: 643866385}
   m_Layer: 0
   m_Name: LoadingController
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &643866384
 Transform:
   m_ObjectHideFlags: 0
@@ -629,6 +630,18 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &643866385
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 643866383}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5d037a598f6b48e6ad628efa4161206, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &752371016
 GameObject:
   m_ObjectHideFlags: 0
