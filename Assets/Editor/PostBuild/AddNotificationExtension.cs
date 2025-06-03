@@ -179,22 +179,22 @@ class NotificationService: UNNotificationServiceExtension {
         
         string podfileContent = @"
 source 'https://cdn.cocoapods.org/'
-source 'https://github.com/CocoaPods/Specs'
 
 platform :ios, '13.0'
 
+use_frameworks! :linkage => :static
+
 target 'UnityFramework' do
   pod 'AppsFlyerFramework', '6.16.2'
-  pod 'Firebase/Core', '11.10.0'
+  pod 'FirebaseAnalytics', '11.10.0'
   pod 'Firebase/Messaging', '11.10.0'
-  pod 'Firebase/RemoteConfig', '11.10.0'
-  pod 'UnityAds', '~> 4.12.0'
 end
+
 target 'Unity-iPhone' do
 end
-use_frameworks! :linkage => :static
+
 target 'notifications' do
-  pod 'Firebase/Core', '11.10.0'
+  pod 'FirebaseAnalytics', '11.10.0'
   pod 'Firebase/Messaging', '11.10.0'
 end
 
