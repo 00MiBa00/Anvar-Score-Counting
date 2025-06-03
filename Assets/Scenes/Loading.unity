@@ -38,7 +38,7 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 0}
-  m_IndirectSpecularColor: {r: 0.44657844, g: 0.49641222, b: 0.57481676, a: 1}
+  m_IndirectSpecularColor: {r: 0.44657844, g: 0.49641263, b: 0.57481724, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -186,7 +186,7 @@ PrefabInstance:
     - target: {fileID: 1189609332777883358, guid: a4021124f079b4d1e90ce1253fd9fe1d, type: 3}
       propertyPath: m_Sprite
       value: 
-      objectReference: {fileID: 21300000, guid: b5616d8d4be8b46779327a91e92b0259, type: 3}
+      objectReference: {fileID: 21300000, guid: bce1c118342254d4ab2d1cda9f213896, type: 3}
     - target: {fileID: 1517719512166595930, guid: a4021124f079b4d1e90ce1253fd9fe1d, type: 3}
       propertyPath: m_AnchorMax.y
       value: 0
@@ -322,7 +322,7 @@ PrefabInstance:
     - target: {fileID: 3936867120894256636, guid: a4021124f079b4d1e90ce1253fd9fe1d, type: 3}
       propertyPath: m_Sprite
       value: 
-      objectReference: {fileID: 21300000, guid: 629ed9bcd4a7f41e587fed83b69af92d, type: 3}
+      objectReference: {fileID: 21300000, guid: 532a4e3b95a3241d9b9859cb8f886600, type: 3}
     - target: {fileID: 3982882047755892699, guid: a4021124f079b4d1e90ce1253fd9fe1d, type: 3}
       propertyPath: m_IsActive
       value: 0
@@ -334,7 +334,7 @@ PrefabInstance:
     - target: {fileID: 4375090788568498017, guid: a4021124f079b4d1e90ce1253fd9fe1d, type: 3}
       propertyPath: m_Sprite
       value: 
-      objectReference: {fileID: 21300000, guid: 629ed9bcd4a7f41e587fed83b69af92d, type: 3}
+      objectReference: {fileID: 21300000, guid: 532a4e3b95a3241d9b9859cb8f886600, type: 3}
     - target: {fileID: 4963164313562573731, guid: a4021124f079b4d1e90ce1253fd9fe1d, type: 3}
       propertyPath: m_IsActive
       value: 0
@@ -494,7 +494,7 @@ PrefabInstance:
     - target: {fileID: 7929243383308060797, guid: a4021124f079b4d1e90ce1253fd9fe1d, type: 3}
       propertyPath: m_Sprite
       value: 
-      objectReference: {fileID: 21300000, guid: 629ed9bcd4a7f41e587fed83b69af92d, type: 3}
+      objectReference: {fileID: 21300000, guid: 532a4e3b95a3241d9b9859cb8f886600, type: 3}
     - target: {fileID: 8034388680788232594, guid: a4021124f079b4d1e90ce1253fd9fe1d, type: 3}
       propertyPath: m_AnchorMax.y
       value: 0
@@ -574,9 +574,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   forcedScreenOrientation: 1
-  endpoint: https://plinkorunningball.com
-  appsflyerDevID: zLJM3rrDukmFnbWfRPYgRV
-  IOS_ID: 6593675269
+  endpoint: https://scoregamescounting.com
+  appsflyerDevID: W3chxZxp2Ri3DqewMPb3X5
+  IOS_ID: 6745257551
   sleepingObjects:
   - {fileID: 643866383}
 --- !u!1 &160219041 stripped
