@@ -60,15 +60,6 @@ platform :ios do
     unless File.exist?(xcodeproj_path)
       UI.user_error!("❌ Xcode project not found at: #{xcodeproj_path}")
     end
-
-    update_info_plist(
-      xcodeproj: xcodeproj_path,
-      plist_path: 'Info.plist',
-      block: proc do |plist|
-        plist['ITSAppUsesNonExemptEncryption'] = false
-        plist['MinimumOSVersion'] = '11.0'
-        plist['NSLocationWhenInUseUsageDescription'] = 'Allow access to location for app usage'
-      end
     )
 
     build
