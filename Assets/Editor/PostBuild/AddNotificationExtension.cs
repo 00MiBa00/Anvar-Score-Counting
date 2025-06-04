@@ -170,7 +170,7 @@ class NotificationService: UNNotificationServiceExtension {
         
         //System.Threading.Thread.Sleep(3000);
         
-        RunPodInstall(path);
+        //RunPodInstall(path);
     }
 
     private static void InitPodFile(string pathToBuiltProject)
