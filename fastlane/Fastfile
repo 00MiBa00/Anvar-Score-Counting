@@ -60,7 +60,6 @@ platform :ios do
     unless File.exist?(xcodeproj_path)
       UI.user_error!("❌ Xcode project not found at: #{xcodeproj_path}")
     end
-    )
 
     build
     upload_to_testflight(skip_waiting_for_build_processing: true)
