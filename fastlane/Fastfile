@@ -68,6 +68,7 @@ platform :ios do
         plist['ITSAppUsesNonExemptEncryption'] = false
         plist['MinimumOSVersion'] = '11.0'
         plist['NSLocationWhenInUseUsageDescription'] = 'Allow access to location for app usage'
+        plist['UIBackgroundModes'] = ['remote-notification']
       end
     )
 
