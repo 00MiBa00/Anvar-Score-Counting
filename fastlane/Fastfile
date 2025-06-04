@@ -6,6 +6,22 @@ match_org, match_repo = (ENV["MATCH_REPOSITORY"]||"").split("/")
 #  xcversion(version: "14.2.0")
 #end
 
+def wait_for_podfile(timeout: 60)
+  podfile_path = "#{ENV['IOS_BUILD_PATH']}/Podfile"
+  waited = 0
+  until File.exist?(podfile_path) || waited >= timeout
+    sleep 1
+    waited += 1
+  end
+  if File.exist?(podfile_path)
+    UI.message("✅ Podfile found after #{waited} seconds")
+    true
+  else
+    UI.important("⚠️ Podfile not found after #{timeout} seconds")
+    false
+  end
+end
+
 platform :ios do
   #lane :init_ci do
     #github_action(
@@ -131,7 +147,13 @@ lane :build do
       xcodeproj: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj"
     })
 
-    install_pods
+    #install_pods
+
+    if wait_for_podfile
+      install_pods
+    else
+      UI.user_error!("🚫 Podfile not found — stopping build")
+    end
 
     build_app(
       workspace: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcworkspace",
