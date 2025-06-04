@@ -145,7 +145,8 @@ platform :ios do
 
     rescue => ex
       UI.error("❌ Build failed: #{ex}")
-      sh("cat ~/Library/Logs/gym/ScoreCounting-Unity-iPhone.log || echo 'Log not found'")
+      sh("mkdir -p #{ENV['IOS_BUILD_PATH']}/logs")
+      sh("cp ~/Library/Logs/gym/ScoreCounting-Unity-iPhone.log #{ENV['IOS_BUILD_PATH']}/logs/build_fail.log || echo 'Log not found'")
       raise ex
     end
   end
