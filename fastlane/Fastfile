@@ -6,8 +6,8 @@ match_org, match_repo = (ENV["MATCH_REPOSITORY"]||"").split("/")
 #  xcversion(version: "14.2.0")
 #end
 
-def wait_for_podfile(timeout: 60)
-  podfile_path = "#{ENV['IOS_BUILD_PATH']}/Podfile"
+def wait_for_podfile(timeout: 120)
+  podfile_path = "#{ENV['IOS_BUILD_PATH']}/iOS/Podfile"
   waited = 0
   until File.exist?(podfile_path) || waited >= timeout
     sleep 1
