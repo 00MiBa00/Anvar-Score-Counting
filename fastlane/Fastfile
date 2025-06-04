@@ -149,6 +149,9 @@ lane :build do
 
     #install_pods
 
+    UI.message("📡 Ожидание Podfile: #{ENV['IOS_BUILD_PATH']}/iOS/Podfile")
+    sh("ls -la #{ENV['IOS_BUILD_PATH']}/iOS || echo '❌ Папка не найдена'")
+
     if wait_for_podfile
       install_pods
     else
