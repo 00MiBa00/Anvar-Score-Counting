@@ -104,7 +104,7 @@ platform :ios do
           clean: true,
           use_bundle_exec: false,
           repo_update: true,
-          podfile: "#{ENV['IOS_BUILD_PATH']}/Podfile"
+          podfile: "#{ENV['IOS_BUILD_PATH']}/iOS/Podfile"
       )
     end
 
