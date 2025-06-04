@@ -1,5 +1,5 @@
-org, repo = (ENV["GITHUB_REPOSITORY"]||"").split("/")
-match_org, match_repo = (ENV["MATCH_REPOSITORY"]||"").split("/")
+org, repo = (ENV["GITHUB_REPOSITORY"] || "").split("/")
+match_org, match_repo = (ENV["MATCH_REPOSITORY"] || "").split("/")
 
 def wait_for_podfile(timeout: 120)
   podfile_path = "#{ENV['IOS_BUILD_PATH']}/iOS/Podfile"
@@ -54,6 +54,42 @@ platform :ios do
     sh "security find-identity -v -p codesigning"
   end
 
+  desc "Remove duplicate Info.plist from notifications extension"
+  lane :fix_notifications_info_plist do
+    require 'xcodeproj'
+
+    project_path = "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj"
+    UI.user_error!("🚫 Xcode project not found at: #{project_path}") unless File.exist?(project_path)
+
+    project = Xcodeproj::Project.open(project_path)
+
+    target = project.targets.find { |t| t.name == "notifications" }
+    unless target
+      UI.important("⚠️ Target 'notifications' not found in #{project_path}")
+      next
+    end
+
+    resources_phase = target.build_phases.find { |bp| bp.display_name == "Copy Bundle Resources" }
+    unless resources_phase
+      UI.important("⚠️ 'Copy Bundle Resources' phase not found in target 'notifications'")
+      next
+    end
+
+    file_ref = project.files.find { |f| f.path == "NotificationService/Info.plist" }
+    unless file_ref
+      UI.important("⚠️ File 'NotificationService/Info.plist' not found in project")
+      next
+    end
+
+    if resources_phase.file_ref?(file_ref)
+      resources_phase.remove_file_reference(file_ref)
+      project.save
+      UI.message("✅ Removed duplicate Info.plist from Copy Bundle Resources in 'notifications' target")
+    else
+      UI.important("ℹ️ 'NotificationService/Info.plist' not present in Copy Bundle Resources - nothing to do")
+    end
+  end
+
   desc "Deliver a new Beta build to Apple TestFlight"
   lane :beta do
     xcodeproj_path = "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj"
@@ -104,10 +140,15 @@ platform :ios do
 
       version_number = ENV['APP_VERSION'] || '1.0.0'
       increment_version_number(version_number: version_number, xcodeproj: xcodeproj_path)
-      increment_build_number({
-        build_number: latest_testflight_build_number(version: version_number, app_identifier: ENV['IOS_BUNDLE_ID']) + 1,
+
+      last_build = latest_testflight_build_number(
+        version: version_number,
+        app_identifier: ENV['IOS_BUNDLE_ID']
+      ).to_i
+      increment_build_number(
+        build_number: last_build + 1,
         xcodeproj: xcodeproj_path
-      })
+      )
 
       UI.message("📡 Ожидание Podfile: #{ENV['IOS_BUILD_PATH']}/iOS/Podfile")
       sh("ls -la #{ENV['IOS_BUILD_PATH']}/iOS || echo '❌ Папка не найдена'")
@@ -117,6 +158,9 @@ platform :ios do
       else
         UI.user_error!("🚫 Podfile not found — stopping build")
       end
+
+      # Удаляем дублирующий Info.plist в расширении notifications перед архивированием
+      fix_notifications_info_plist
 
       build_app(
         workspace: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcworkspace",
