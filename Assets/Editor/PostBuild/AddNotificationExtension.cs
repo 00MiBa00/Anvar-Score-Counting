@@ -168,7 +168,7 @@ class NotificationService: UNNotificationServiceExtension {
         
         InitPodFile(path);
         
-        System.Threading.Thread.Sleep(3000);
+        //System.Threading.Thread.Sleep(3000);
         
         RunPodInstall(path);
     }
@@ -213,8 +213,7 @@ end
         startInfo.RedirectStandardOutput = true;
         startInfo.RedirectStandardError = true;
         startInfo.UseShellExecute = false;
-
-        // Добавляем нужные переменные окружения для UTF-8
+        
         startInfo.EnvironmentVariables["LANG"] = "en_US.UTF-8";
         startInfo.EnvironmentVariables["LC_ALL"] = "en_US.UTF-8";
 
