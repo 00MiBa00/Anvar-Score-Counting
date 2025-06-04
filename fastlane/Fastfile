@@ -1,7 +1,6 @@
-org, repo = (ENV["GITHUB_REPOSITORY"] || "").split("/")
-match_org, match_repo = (ENV["MATCH_REPOSITORY"] || "").split("/")
+org, repo = (ENV["GITHUB_REPOSITORY"]||"").split("/")
+match_org, match_repo = (ENV["MATCH_REPOSITORY"]||"").split("/")
 
-# Задержка ожидания Podfile
 def wait_for_podfile(timeout: 120)
   podfile_path = "#{ENV['IOS_BUILD_PATH']}/iOS/Podfile"
   waited = 0
@@ -10,17 +9,17 @@ def wait_for_podfile(timeout: 120)
     waited += 1
   end
   if File.exist?(podfile_path)
-    UI.message("✅ Podfile найден через #{waited} секунд")
+    UI.message("✅ Podfile found after #{waited} seconds")
     true
   else
-    UI.important("⚠️ Podfile не найден за #{timeout} секунд")
+    UI.important("⚠️ Podfile not found after #{timeout} seconds")
     false
   end
 end
 
 platform :ios do
 
-  desc "Синхронизация сертификатов"
+  desc "Sync codesigning certificates"
   lane :sync_certificates do
     app_store_connect_api_key(
       key_id: ENV["APPSTORE_KEY_ID"],
@@ -28,19 +27,19 @@ platform :ios do
       key_content: ENV['APPSTORE_P8']
     )
 
+    main_app_bundle_id = ENV["IOS_BUNDLE_ID"]
+    extension_bundle_id = "#{main_app_bundle_id}.notifications"
+
     match(
       type: "appstore",
       storage_mode: "git",
       git_url: "git@github.com:#{match_org}/#{match_repo}.git",
-      app_identifier: [
-        ENV["IOS_BUNDLE_ID"],
-        "#{ENV["IOS_BUNDLE_ID"]}.notifications"
-      ],
+      app_identifier: [main_app_bundle_id, extension_bundle_id],
       readonly: false
     )
   end
 
-  desc "Установить CocoaPods"
+  desc "Install cocoapods"
   lane :install_pods do
     cocoapods(
       clean: true,
@@ -50,15 +49,47 @@ platform :ios do
     )
   end
 
-  desc "Создание сборки и .ipa"
+  desc "List Provisioning Profiles"
+  lane :list_profiles do
+    sh "security find-identity -v -p codesigning"
+  end
+
+  desc "Deliver a new Beta build to Apple TestFlight"
+  lane :beta do
+    xcodeproj_path = "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj"
+    unless File.exist?(xcodeproj_path)
+      UI.user_error!("❌ Xcode project not found at: #{xcodeproj_path}")
+    end
+
+    update_info_plist(
+      xcodeproj: xcodeproj_path,
+      plist_path: 'Info.plist',
+      block: proc do |plist|
+        plist['ITSAppUsesNonExemptEncryption'] = false
+        plist['MinimumOSVersion'] = '11.0'
+        plist['NSLocationWhenInUseUsageDescription'] = 'Allow access to location for app usage'
+      end
+    )
+
+    build
+    upload_to_testflight(skip_waiting_for_build_processing: true)
+  end
+
+  desc "Create .ipa"
   lane :build do
     begin
       setup_ci
       sync_certificates
+      list_profiles
+
+      xcodeproj_path = "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj"
+      unless File.exist?(xcodeproj_path)
+        UI.user_error!("❌ Xcode project not found at: #{xcodeproj_path}")
+      end
 
       update_code_signing_settings(
         use_automatic_signing: true,
-        path: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj"
+        path: xcodeproj_path
       )
 
       update_code_signing_settings(
@@ -66,7 +97,7 @@ platform :ios do
         team_id: ENV["sigh_#{ENV['IOS_BUNDLE_ID']}_appstore_team-id"],
         code_sign_identity: 'iPhone Distribution',
         targets: 'Unity-iPhone',
-        path: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj",
+        path: xcodeproj_path,
         profile_name: ENV["sigh_#{ENV['IOS_BUNDLE_ID']}_appstore_profile-name"],
         profile_uuid: ENV["sigh_#{ENV['IOS_BUNDLE_ID']}_appstore"]
       )
@@ -76,36 +107,26 @@ platform :ios do
         team_id: ENV["sigh_#{ENV['IOS_BUNDLE_ID']}.notifications_appstore_team-id"],
         code_sign_identity: 'iPhone Distribution',
         targets: 'notifications',
-        path: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj",
+        path: xcodeproj_path,
         profile_name: ENV["sigh_#{ENV['IOS_BUNDLE_ID']}.notifications_appstore_profile-name"],
         profile_uuid: ENV["sigh_#{ENV['IOS_BUNDLE_ID']}.notifications_appstore"]
       )
 
       version_number = ENV['APP_VERSION'] || '1.0.0'
-      increment_version_number(version_number: version_number, xcodeproj: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj")
+      increment_version_number(version_number: version_number, xcodeproj: xcodeproj_path)
       increment_build_number({
         build_number: latest_testflight_build_number(version: version_number, app_identifier: ENV['IOS_BUNDLE_ID']) + 1,
-        xcodeproj: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj"
+        xcodeproj: xcodeproj_path
       })
 
-      UI.message("📡 Ждём Podfile: #{ENV['IOS_BUILD_PATH']}/iOS/Podfile")
+      UI.message("📡 Ожидание Podfile: #{ENV['IOS_BUILD_PATH']}/iOS/Podfile")
       sh("ls -la #{ENV['IOS_BUILD_PATH']}/iOS || echo '❌ Папка не найдена'")
 
       if wait_for_podfile
         install_pods
       else
-        UI.user_error!("🚫 Podfile не найден — остановка билда")
+        UI.user_error!("🚫 Podfile not found — stopping build")
       end
-
-      update_info_plist(
-        xcodeproj: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj",
-        plist_path: 'Info.plist',
-        block: proc do |plist|
-          plist['ITSAppUsesNonExemptEncryption'] = false
-          plist['MinimumOSVersion'] = '11.0'
-          plist['NSLocationWhenInUseUsageDescription'] = 'Allow access to location for app usage'
-        end
-      )
 
       build_app(
         workspace: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcworkspace",
@@ -123,29 +144,9 @@ platform :ios do
       )
 
     rescue => ex
-      UI.error("❌ Сборка завершилась с ошибкой: #{ex}")
+      UI.error("❌ Build failed: #{ex}")
       sh("cat ~/Library/Logs/gym/ScoreCounting-Unity-iPhone.log || echo 'Log not found'")
       raise ex
     end
   end
-
-  desc "Загрузка билда в TestFlight"
-  lane :beta do
-    build
-    upload_to_testflight(skip_waiting_for_build_processing: true)
-  end
-
-  desc "Загрузка релиза в App Store"
-  lane :release do
-    build
-    deliver
-    upload_to_app_store(
-      submit_for_review: false,
-      automatic_release: false,
-      force: true,
-      skip_screenshots: true,
-      run_precheck_before_submit: false
-    )
-  end
-
 end
