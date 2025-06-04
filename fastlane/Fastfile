@@ -131,7 +131,7 @@ lane :build do
       xcodeproj: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj"
     })
 
-    #install_pods
+    install_pods
 
     build_app(
       workspace: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcworkspace",
