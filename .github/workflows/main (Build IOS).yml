@@ -112,7 +112,14 @@ jobs:
           IOS_BUNDLE_ID: com.jrxkw.ptmlyqsd
           APP_VERSION: "2.0"
           PROJECT_NAME: Score Games Counting
-      
+
+      - name: Upload Fastlane Build Log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fastlane-build-log
+          path: build/iOS/logs/build_fail.log
+
 
       ####################################
       #  Cleanup to avoid storage limit  #
