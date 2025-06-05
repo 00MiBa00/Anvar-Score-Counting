@@ -88,7 +88,9 @@ class NotificationService: UNNotificationServiceExtension {
        project.SetBuildProperty(extensionTarget, "SWIFT_VERSION", "5.0");
        project.SetBuildProperty(extensionTarget, "IPHONEOS_DEPLOYMENT_TARGET", "11.0");
        project.SetBuildProperty(extensionTarget, "CODE_SIGN_STYLE", "Automatic");
-
+       
+       RemoveEmbedAppExtensionsPhase(path, project, mainTarget);
+       
        project.WriteToFile(projectPath); // сохранить после создания таргета
 
        // === Add capabilities to extension ===
@@ -189,5 +191,37 @@ end
 ";
 
        File.WriteAllText(podfilePath, podfileContent);
+   }
+   
+   private static void RemoveEmbedAppExtensionsPhase(string pathToBuiltProject, PBXProject project, string targetGuid)
+   {
+       string projectPath = PBXProject.GetPBXProjectPath(pathToBuiltProject);
+       string contents = File.ReadAllText(projectPath);
+
+       const string marker = "/* Embed App Extensions */";
+       int index = contents.IndexOf(marker);
+       if (index == -1)
+       {
+           UnityEngine.Debug.Log("No Embed App Extensions phase found.");
+           return;
+       }
+
+       // Найдём начало блока
+       int start = contents.LastIndexOf("/* Begin PBXCopyFilesBuildPhase section */", index);
+       if (start == -1) start = contents.LastIndexOf("PBXCopyFilesBuildPhase", index);
+       if (start == -1) return;
+
+       // Найдём конец блока
+       int end = contents.IndexOf("};", index);
+       if (end == -1) return;
+
+       int blockStart = contents.LastIndexOf("\n", start) + 1;
+       int blockEnd = contents.IndexOf("\n", end) + 1;
+
+       string toRemove = contents.Substring(blockStart, blockEnd - blockStart);
+       contents = contents.Replace(toRemove, "");
+
+       File.WriteAllText(projectPath, contents);
+       project.ReadFromFile(projectPath); // обязательно перечитать обновлённый проект
    }
 }
