@@ -89,8 +89,9 @@ public class AddNotificationExtension
           project.RemoveFileFromBuild(buildPhase, plistGuid);
       }
 
-      project.AddFileToBuild(extensionTarget, swiftFileGUID);
-
+      string sourcesBuildPhase = project.GetSourcesBuildPhaseByTarget(extensionTarget);
+      project.AddFileToBuildSection(extensionTarget, sourcesBuildPhase, swiftFileGUID);
+      
       project.SetBuildProperty(extensionTarget, "INFOPLIST_FILE", relativePlistPath);
       project.SetBuildProperty(extensionTarget, "SWIFT_VERSION", "5.0");
       project.SetBuildProperty(extensionTarget, "IPHONEOS_DEPLOYMENT_TARGET", "11.0");
