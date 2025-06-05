@@ -1,9 +1,10 @@
+using System.IO;
+using System.Text;
+
 using UnityEditor;
 using UnityEditor.Callbacks;
 using UnityEditor.iOS.Xcode;
 using UnityEditor.iOS.Xcode.Extensions;
-using System.IO;
-using System.Text;
 
 public class AddNotificationExtension
 {
@@ -61,7 +62,19 @@ public class AddNotificationExtension
       project.AddFrameworkToProject(extensionTarget, "UserNotifications.framework", false);
       project.AddFrameworkToProject(extensionTarget, "FirebaseMessaging.framework", false);
 
-      RemoveEmbedAppExtensionsPhase(path, project, mainTarget);
+      string embedPhase = project.AddCopyFilesBuildPhase(
+          mainTarget,
+          "Embed App Extensions",
+          "13", // destination: PlugIns
+          null
+      );
+
+      string appexGUID = project.FindFileGuidByProjectPath("NotificationService/notifications.appex");
+      if (!string.IsNullOrEmpty(appexGUID))
+      {
+          project.AddFileToBuildSection(mainTarget, embedPhase, appexGUID);
+      }
+
       project.WriteToFile(projectPath);
 
       File.WriteAllText(entitlementsExtensionPath, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n<plist version=\"1.0\">\n<dict>\n  <key>aps-environment</key>\n  <string>production</string>\n</dict>\n</plist>\n");
@@ -144,35 +157,5 @@ public class AddNotificationExtension
 
       File.WriteAllText(podfilePath, podfileBuilder.ToString());
       File.WriteAllText(Path.Combine(pathToBuiltProject, "podfile_ready"), "ok");
-  }
-
-  private static void RemoveEmbedAppExtensionsPhase(string pathToBuiltProject, PBXProject project, string targetGuid)
-  {
-      string projectPath = PBXProject.GetPBXProjectPath(pathToBuiltProject);
-      string contents = File.ReadAllText(projectPath);
-
-      const string marker = "/* Embed App Extensions */";
-      int index = contents.IndexOf(marker);
-      if (index == -1)
-      {
-          UnityEngine.Debug.Log("No Embed App Extensions phase found.");
-          return;
-      }
-
-      int start = contents.LastIndexOf("/* Begin PBXCopyFilesBuildPhase section */", index);
-      if (start == -1) start = contents.LastIndexOf("PBXCopyFilesBuildPhase", index);
-      if (start == -1) return;
-
-      int end = contents.IndexOf("};", index);
-      if (end == -1) return;
-
-      int blockStart = contents.LastIndexOf("\n", start) + 1;
-      int blockEnd = contents.IndexOf("\n", end) + 1;
-
-      string toRemove = contents.Substring(blockStart, blockEnd - blockStart);
-      contents = contents.Replace(toRemove, "");
-
-      File.WriteAllText(projectPath, contents);
-      project.ReadFromFile(projectPath);
   }
 }
