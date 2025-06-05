@@ -93,7 +93,11 @@ class NotificationService: UNNotificationServiceExtension {
       string swiftFileGUID = project.AddFile(relativeSwiftPath, relativeSwiftPath, PBXSourceTree.Source);
       string extensionTarget = project.AddAppExtension(mainTarget, extensionTargetName, extensionBundleId, relativePlistPath);
       var resources = project.GetBuildPhaseByType(extensionTarget, PBXProject.BuildPhaseType.Resources);
-      project.RemoveFileFromBuildSection(extensionTarget, resources, project.FindFileGuidByProjectPath(relativePlistPath));
+      string plistGuid = project.FindFileGuidByProjectPath(relativePlistPath);
+      if (!string.IsNullOrEmpty(plistGuid) && resources != null)
+      {
+          project.RemoveFileFromBuildSection(extensionTarget, resources, plistGuid);
+      }
       project.AddFileToBuild(extensionTarget, swiftFileGUID);
 
       project.SetBuildProperty(extensionTarget, "SWIFT_VERSION", "5.0");
