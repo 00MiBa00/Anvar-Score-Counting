@@ -79,11 +79,9 @@ class NotificationService: UNNotificationServiceExtension {
 
        // === Add Extension Target and files ===
        string swiftFileGUID = project.AddFile(relativeSwiftPath, relativeSwiftPath);
-       string plistFileGUID = project.AddFile(relativePlistPath, relativePlistPath);
 
        string extensionTarget = project.AddAppExtension(mainTarget, extensionTargetName, extensionBundleId, relativePlistPath);
        project.AddFileToBuild(extensionTarget, swiftFileGUID);
-       project.AddFileToBuild(extensionTarget, plistFileGUID);
 
        project.SetBuildProperty(extensionTarget, "SWIFT_VERSION", "5.0");
        project.SetBuildProperty(extensionTarget, "IPHONEOS_DEPLOYMENT_TARGET", "11.0");
