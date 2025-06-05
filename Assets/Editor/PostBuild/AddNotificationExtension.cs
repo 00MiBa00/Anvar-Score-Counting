@@ -4,7 +4,6 @@ using UnityEditor.iOS.Xcode;
 using UnityEditor.iOS.Xcode.Extensions;
 using System.IO;
 
-
 public class AddNotificationExtension
 {
   [PostProcessBuild(9999)]
@@ -13,11 +12,9 @@ public class AddNotificationExtension
       if (buildTarget != BuildTarget.iOS)
           return;
 
-
       string projectPath = PBXProject.GetPBXProjectPath(path);
       var project = new PBXProject();
       project.ReadFromFile(projectPath);
-
 
 #if UNITY_2019_3_OR_NEWER
       string mainTarget = project.GetUnityMainTargetGuid();
@@ -25,23 +22,19 @@ public class AddNotificationExtension
       string mainTarget = project.TargetGuidByName("Unity-iPhone");
 #endif
 
-
       // === Extension Setup ===
       string extensionTargetName = "notifications";
       string extensionBundleId = PlayerSettings.GetApplicationIdentifier(BuildTargetGroup.iOS) + ".notifications";
       string extensionFolder = Path.Combine(path, "NotificationService");
       Directory.CreateDirectory(extensionFolder);
 
-
       string plistPath = Path.Combine(extensionFolder, "Info.plist");
       string swiftPath = Path.Combine(extensionFolder, "NotificationService.swift");
       string entitlementsExtensionPath = Path.Combine(extensionFolder, "notifications.entitlements");
 
-
       string relativePlistPath = "NotificationService/Info.plist";
       string relativeSwiftPath = "NotificationService/NotificationService.swift";
       string relativeEntitlementsExtensionPath = "NotificationService/notifications.entitlements";
-
 
       File.WriteAllText(plistPath, @"<?xml version=""1.0"" encoding=""UTF-8""?>
 <!DOCTYPE plist PUBLIC ""-//Apple//DTD PLIST 1.0//EN"" ""http://www.apple.com/DTDs/PropertyList-1.0.dtd"">
@@ -56,7 +49,6 @@ public class AddNotificationExtension
   </dict> 
 </dict> 
 </plist>");
-
 
       File.WriteAllText(swiftPath, @"
 import UserNotifications
@@ -92,21 +84,23 @@ class NotificationService: UNNotificationServiceExtension {
       // === Add Extension Target and files ===
       string swiftFileGUID = project.AddFile(relativeSwiftPath, relativeSwiftPath, PBXSourceTree.Source);
       string extensionTarget = project.AddAppExtension(mainTarget, extensionTargetName, extensionBundleId, relativePlistPath);
-      var resources = project.GetBuildPhaseByType(extensionTarget, PBXProject.BuildPhaseType.Resources);
+
       string plistGuid = project.FindFileGuidByProjectPath(relativePlistPath);
-      if (!string.IsNullOrEmpty(plistGuid) && resources != null)
+      if (!string.IsNullOrEmpty(plistGuid))
       {
-          project.RemoveFileFromBuildSection(extensionTarget, resources, plistGuid);
+          string buildPhase = project.GetResourcesBuildPhaseByTarget(extensionTarget);
+          project.RemoveFileFromBuild(buildPhase, plistGuid);
       }
+
       project.AddFileToBuild(extensionTarget, swiftFileGUID);
 
+      project.SetBuildProperty(extensionTarget, "INFOPLIST_FILE", relativePlistPath);
       project.SetBuildProperty(extensionTarget, "SWIFT_VERSION", "5.0");
       project.SetBuildProperty(extensionTarget, "IPHONEOS_DEPLOYMENT_TARGET", "11.0");
       project.SetBuildProperty(extensionTarget, "CODE_SIGN_STYLE", "Automatic");
 
       RemoveEmbedAppExtensionsPhase(path, project, mainTarget);
-
-      project.WriteToFile(projectPath); // сохранить после создания таргета
+      project.WriteToFile(projectPath);
 
       // === Add capabilities to extension ===
       File.WriteAllText(entitlementsExtensionPath, @"<?xml version=""1.0"" encoding=""UTF-8""?>
@@ -127,7 +121,6 @@ class NotificationService: UNNotificationServiceExtension {
       extensionCapabilityManager.AddPushNotifications(false);
       extensionCapabilityManager.WriteToFile();
 
-      // Добавим entitlements в build settings
       project.ReadFromFile(projectPath);
       project.AddBuildProperty(extensionTarget, "CODE_SIGN_ENTITLEMENTS", relativeEntitlementsExtensionPath);
 
