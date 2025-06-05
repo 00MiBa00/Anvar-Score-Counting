@@ -36,48 +36,48 @@ public class AddNotificationExtension
       string relativeSwiftPath = "NotificationService/NotificationService.swift";
       string relativeEntitlementsExtensionPath = "NotificationService/notifications.entitlements";
 
-      var plistContent = new StringBuilder();
-      plistContent.AppendLine("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
-      plistContent.AppendLine("<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">");
-      plistContent.AppendLine("<plist version=\"1.0\">");
-      plistContent.AppendLine("<dict>");
-      plistContent.AppendLine("  <key>NSExtension</key>");
-      plistContent.AppendLine("  <dict>");
-      plistContent.AppendLine("    <key>NSExtensionPointIdentifier</key>");
-      plistContent.AppendLine("    <string>com.apple.usernotifications.service</string>");
-      plistContent.AppendLine("    <key>NSExtensionPrincipalClass</key>");
-      plistContent.AppendLine("    <string>$(PRODUCT_MODULE_NAME).NotificationService</string>");
-      plistContent.AppendLine("  </dict>");
-      plistContent.AppendLine("</dict>");
-      plistContent.AppendLine("</plist>");
-      File.WriteAllText(plistPath, plistContent.ToString());
+      var plistBuilder = new StringBuilder();
+      plistBuilder.AppendLine("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
+      plistBuilder.AppendLine("<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">");
+      plistBuilder.AppendLine("<plist version=\"1.0\">");
+      plistBuilder.AppendLine("<dict>");
+      plistBuilder.AppendLine("  <key>NSExtension</key>");
+      plistBuilder.AppendLine("  <dict>");
+      plistBuilder.AppendLine("    <key>NSExtensionPointIdentifier</key>");
+      plistBuilder.AppendLine("    <string>com.apple.usernotifications.service</string>");
+      plistBuilder.AppendLine("    <key>NSExtensionPrincipalClass</key>");
+      plistBuilder.AppendLine("    <string>$(PRODUCT_MODULE_NAME).NotificationService</string>");
+      plistBuilder.AppendLine("  </dict>");
+      plistBuilder.AppendLine("</dict>");
+      plistBuilder.AppendLine("</plist>");
+      File.WriteAllText(plistPath, plistBuilder.ToString());
 
-      var swiftContent = new StringBuilder();
-      swiftContent.AppendLine("import UserNotifications");
-      swiftContent.AppendLine("import FirebaseMessaging");
-      swiftContent.AppendLine();
-      swiftContent.AppendLine("class NotificationService: UNNotificationServiceExtension {");
-      swiftContent.AppendLine("  var contentHandler: ((UNNotificationContent) -> Void)?");
-      swiftContent.AppendLine("  var bestAttemptContent: UNMutableNotificationContent?");
-      swiftContent.AppendLine();
-      swiftContent.AppendLine("  override func didReceive(_ request: UNNotificationRequest, withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void) {");
-      swiftContent.AppendLine("    self.contentHandler = contentHandler");
-      swiftContent.AppendLine("    bestAttemptContent = request.content.mutableCopy() as? UNMutableNotificationContent");
-      swiftContent.AppendLine();
-      swiftContent.AppendLine("    guard let bestAttemptContent = bestAttemptContent else { return }");
-      swiftContent.AppendLine();
-      swiftContent.AppendLine("    FIRMessagingExtensionHelper().populateNotificationContent(");
-      swiftContent.AppendLine("      bestAttemptContent,");
-      swiftContent.AppendLine("      withContentHandler: contentHandler)");
-      swiftContent.AppendLine("  }");
-      swiftContent.AppendLine();
-      swiftContent.AppendLine("  override func serviceExtensionTimeWillExpire() {");
-      swiftContent.AppendLine("    if let contentHandler = contentHandler, let bestAttemptContent = bestAttemptContent {");
-      swiftContent.AppendLine("      contentHandler(bestAttemptContent)");
-      swiftContent.AppendLine("    }");
-      swiftContent.AppendLine("  }");
-      swiftContent.AppendLine("}");
-      File.WriteAllText(swiftPath, swiftContent.ToString());
+      var swiftBuilder = new StringBuilder();
+      swiftBuilder.AppendLine("import UserNotifications");
+      swiftBuilder.AppendLine("import FirebaseMessaging");
+      swiftBuilder.AppendLine();
+      swiftBuilder.AppendLine("class NotificationService: UNNotificationServiceExtension {");
+      swiftBuilder.AppendLine("  var contentHandler: ((UNNotificationContent) -> Void)?");
+      swiftBuilder.AppendLine("  var bestAttemptContent: UNMutableNotificationContent?");
+      swiftBuilder.AppendLine();
+      swiftBuilder.AppendLine("  override func didReceive(_ request: UNNotificationRequest, withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void) {");
+      swiftBuilder.AppendLine("    self.contentHandler = contentHandler");
+      swiftBuilder.AppendLine("    bestAttemptContent = request.content.mutableCopy() as? UNMutableNotificationContent");
+      swiftBuilder.AppendLine();
+      swiftBuilder.AppendLine("    guard let bestAttemptContent = bestAttemptContent else { return }");
+      swiftBuilder.AppendLine();
+      swiftBuilder.AppendLine("    FIRMessagingExtensionHelper().populateNotificationContent(");
+      swiftBuilder.AppendLine("      bestAttemptContent,");
+      swiftBuilder.AppendLine("      withContentHandler: contentHandler)");
+      swiftBuilder.AppendLine("  }");
+      swiftBuilder.AppendLine();
+      swiftBuilder.AppendLine("  override func serviceExtensionTimeWillExpire() {");
+      swiftBuilder.AppendLine("    if let contentHandler = contentHandler, let bestAttemptContent = bestAttemptContent {");
+      swiftBuilder.AppendLine("      contentHandler(bestAttemptContent)");
+      swiftBuilder.AppendLine("    }");
+      swiftBuilder.AppendLine("  }");
+      swiftBuilder.AppendLine("}");
+      File.WriteAllText(swiftPath, swiftBuilder.ToString());
 
       string swiftFileGUID = project.AddFile(relativeSwiftPath, relativeSwiftPath, PBXSourceTree.Source);
       string extensionTarget = project.AddAppExtension(mainTarget, extensionTargetName, extensionBundleId, relativePlistPath);
@@ -89,27 +89,30 @@ public class AddNotificationExtension
           project.RemoveFileFromBuild(buildPhase, plistGuid);
       }
 
-      string sourcesBuildPhase = project.GetSourcesBuildPhaseByTarget(extensionTarget);
-      project.AddFileToBuildSection(extensionTarget, sourcesBuildPhase, swiftFileGUID);
-      
+      project.AddFileToBuild(extensionTarget, swiftFileGUID);
+
       project.SetBuildProperty(extensionTarget, "INFOPLIST_FILE", relativePlistPath);
       project.SetBuildProperty(extensionTarget, "SWIFT_VERSION", "5.0");
       project.SetBuildProperty(extensionTarget, "IPHONEOS_DEPLOYMENT_TARGET", "11.0");
       project.SetBuildProperty(extensionTarget, "CODE_SIGN_STYLE", "Automatic");
+      project.SetBuildProperty(extensionTarget, "ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES", "YES");
+
+      project.AddFrameworkToProject(extensionTarget, "UserNotifications.framework", false);
+      project.AddFrameworkToProject(extensionTarget, "FirebaseMessaging.framework", false);
 
       RemoveEmbedAppExtensionsPhase(path, project, mainTarget);
       project.WriteToFile(projectPath);
 
-      var entitlementsContent = new StringBuilder();
-      entitlementsContent.AppendLine("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
-      entitlementsContent.AppendLine("<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">");
-      entitlementsContent.AppendLine("<plist version=\"1.0\">");
-      entitlementsContent.AppendLine("<dict>");
-      entitlementsContent.AppendLine("  <key>aps-environment</key>");
-      entitlementsContent.AppendLine("  <string>development</string>");
-      entitlementsContent.AppendLine("</dict>");
-      entitlementsContent.AppendLine("</plist>");
-      File.WriteAllText(entitlementsExtensionPath, entitlementsContent.ToString());
+      var entitlementsBuilder = new StringBuilder();
+      entitlementsBuilder.AppendLine("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
+      entitlementsBuilder.AppendLine("<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">");
+      entitlementsBuilder.AppendLine("<plist version=\"1.0\">");
+      entitlementsBuilder.AppendLine("<dict>");
+      entitlementsBuilder.AppendLine("  <key>aps-environment</key>");
+      entitlementsBuilder.AppendLine("  <string>development</string>");
+      entitlementsBuilder.AppendLine("</dict>");
+      entitlementsBuilder.AppendLine("</plist>");
+      File.WriteAllText(entitlementsExtensionPath, entitlementsBuilder.ToString());
 
       var extensionCapabilityManager = new ProjectCapabilityManager(
           projectPath,
@@ -125,7 +128,7 @@ public class AddNotificationExtension
 
       string mainEntitlementsPath = Path.Combine(path, "main.entitlements");
       string relativeMainEntitlementsPath = "main.entitlements";
-      File.WriteAllText(mainEntitlementsPath, entitlementsContent.ToString());
+      File.WriteAllText(mainEntitlementsPath, File.ReadAllText(entitlementsExtensionPath));
 
       var mainCapabilityManager = new ProjectCapabilityManager(
           projectPath,
@@ -171,7 +174,7 @@ public class AddNotificationExtension
       podfileBuilder.AppendLine();
       podfileBuilder.AppendLine("platform :ios, '13.0'");
       podfileBuilder.AppendLine();
-      podfileBuilder.AppendLine("use_frameworks!");
+      podfileBuilder.AppendLine("use_frameworks! :linkage => :static");
       podfileBuilder.AppendLine();
       podfileBuilder.AppendLine("target 'UnityFramework' do");
       podfileBuilder.AppendLine("  pod 'AppsFlyerFramework', '6.16.2'");
