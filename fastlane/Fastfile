@@ -49,6 +49,18 @@ platform :ios do
     )
   end
 
+  desc "Run pod install manually in iOS folder"
+  lane :prepare_pods do
+    podfile_path = "#{ENV['IOS_BUILD_PATH']}/iOS/Podfile"
+    unless File.exist?(podfile_path)
+      UI.user_error!("🚫 Podfile не найден после Unity сборки — проверь InitPodFile")
+    end
+
+    Dir.chdir("#{ENV['IOS_BUILD_PATH']}/iOS") do
+      sh("pod install")
+    end
+  end
+
   desc "List Provisioning Profiles"
   lane :list_profiles do
     sh "security find-identity -v -p codesigning"
@@ -154,12 +166,12 @@ platform :ios do
       sh("ls -la #{ENV['IOS_BUILD_PATH']}/iOS || echo '❌ Папка не найдена'")
 
       if wait_for_podfile
+        prepare_pods
         install_pods
       else
         UI.user_error!("🚫 Podfile not found — stopping build")
       end
 
-      # Удаляем дублирующий Info.plist в расширении notifications перед архивированием
       fix_notifications_info_plist
 
       build_app(
