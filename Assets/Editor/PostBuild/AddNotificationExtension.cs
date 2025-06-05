@@ -1,10 +1,9 @@
-using System.IO;
-using System.Text;
-
 using UnityEditor;
 using UnityEditor.Callbacks;
 using UnityEditor.iOS.Xcode;
 using UnityEditor.iOS.Xcode.Extensions;
+using System.IO;
+using System.Text;
 
 public class AddNotificationExtension
 {
@@ -44,13 +43,6 @@ public class AddNotificationExtension
       string swiftFileGUID = project.AddFile(relativeSwiftPath, relativeSwiftPath, PBXSourceTree.Source);
       string extensionTarget = project.AddAppExtension(mainTarget, extensionTargetName, extensionBundleId, relativePlistPath);
 
-      string plistGuid = project.FindFileGuidByProjectPath(relativePlistPath);
-      if (!string.IsNullOrEmpty(plistGuid))
-      {
-          string buildPhase = project.GetResourcesBuildPhaseByTarget(extensionTarget);
-          project.RemoveFileFromBuild(buildPhase, plistGuid);
-      }
-
       project.AddFileToBuild(extensionTarget, swiftFileGUID);
 
       project.SetBuildProperty(extensionTarget, "INFOPLIST_FILE", relativePlistPath);
@@ -62,20 +54,11 @@ public class AddNotificationExtension
       project.AddFrameworkToProject(extensionTarget, "UserNotifications.framework", false);
       project.AddFrameworkToProject(extensionTarget, "FirebaseMessaging.framework", false);
 
-      string embedPhase = project.AddCopyFilesBuildPhase(
-          mainTarget,
-          "Embed App Extensions",
-          "13", // destination: PlugIns
-          null
-      );
-
-      string appexGUID = project.FindFileGuidByProjectPath("NotificationService/notifications.appex");
-      if (!string.IsNullOrEmpty(appexGUID))
-      {
-          project.AddFileToBuildSection(mainTarget, embedPhase, appexGUID);
-      }
-
-      project.WriteToFile(projectPath);
+      // Ensure Embed App Extensions phase exists and contains the .appex
+      string appexPath = Path.Combine(path, "PlugIns/notifications.appex");
+      string appexGuid = project.AddFile(appexPath, "PlugIns/notifications.appex", PBXSourceTree.Source);
+      string embedPhaseGuid = project.AddCopyFilesBuildPhase(mainTarget, "Embed App Extensions", "", "13");
+      project.AddFileToBuildSection(mainTarget, embedPhaseGuid, appexGuid);
 
       File.WriteAllText(entitlementsExtensionPath, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n<plist version=\"1.0\">\n<dict>\n  <key>aps-environment</key>\n  <string>production</string>\n</dict>\n</plist>\n");
 
