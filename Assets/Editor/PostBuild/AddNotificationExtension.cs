@@ -36,44 +36,9 @@ public class AddNotificationExtension
       string relativeSwiftPath = "NotificationService/NotificationService.swift";
       string relativeEntitlementsExtensionPath = "NotificationService/notifications.entitlements";
 
-      File.WriteAllText(plistPath, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
-"<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n" +
-"<plist version=\"1.0\">\n" +
-"<dict>\n" +
-"  <key>NSExtension</key>\n" +
-"  <dict>\n" +
-"    <key>NSExtensionPointIdentifier</key>\n" +
-"    <string>com.apple.usernotifications.service</string>\n" +
-"    <key>NSExtensionPrincipalClass</key>\n" +
-"    <string>$(PRODUCT_MODULE_NAME).NotificationService</string>\n" +
-"  </dict>\n" +
-"</dict>\n" +
-"</plist>");
+      File.WriteAllText(plistPath, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n<plist version=\"1.0\">\n<dict>\n  <key>NSExtension</key>\n  <dict>\n    <key>NSExtensionPointIdentifier</key>\n    <string>com.apple.usernotifications.service</string>\n    <key>NSExtensionPrincipalClass</key>\n    <string>$(PRODUCT_MODULE_NAME).NotificationService</string>\n  </dict>\n</dict>\n</plist>\n");
 
-      File.WriteAllText(swiftPath, @"import UserNotifications
-import FirebaseMessaging
-
-class NotificationService: UNNotificationServiceExtension {
-  var contentHandler: ((UNNotificationContent) -> Void)?
-  var bestAttemptContent: UNMutableNotificationContent?
-
-  override func didReceive(_ request: UNNotificationRequest, withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void) {
-    self.contentHandler = contentHandler
-    bestAttemptContent = request.content.mutableCopy() as? UNMutableNotificationContent
-
-    guard let bestAttemptContent = bestAttemptContent else { return }
-
-    FIRMessagingExtensionHelper().populateNotificationContent(
-      bestAttemptContent,
-      withContentHandler: contentHandler)
-  }
-
-  override func serviceExtensionTimeWillExpire() {
-    if let contentHandler = contentHandler, let bestAttemptContent = bestAttemptContent {
-      contentHandler(bestAttemptContent)
-    }
-  }
-}");
+      File.WriteAllText(swiftPath, "import UserNotifications\nimport FirebaseMessaging\n\nclass NotificationService: UNNotificationServiceExtension {\n  var contentHandler: ((UNNotificationContent) -> Void)?\n  var bestAttemptContent: UNMutableNotificationContent?\n\n  override func didReceive(_ request: UNNotificationRequest, withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void) {\n    self.contentHandler = contentHandler\n    bestAttemptContent = request.content.mutableCopy() as? UNMutableNotificationContent\n\n    guard let bestAttemptContent = bestAttemptContent else { return }\n\n    FIRMessagingExtensionHelper().populateNotificationContent(\n      bestAttemptContent,\n      withContentHandler: contentHandler)\n  }\n\n  override func serviceExtensionTimeWillExpire() {\n    if let contentHandler = contentHandler, let bestAttemptContent = bestAttemptContent {\n      contentHandler(bestAttemptContent)\n    }\n  }\n}");
 
       string swiftFileGUID = project.AddFile(relativeSwiftPath, relativeSwiftPath, PBXSourceTree.Source);
       string extensionTarget = project.AddAppExtension(mainTarget, extensionTargetName, extensionBundleId, relativePlistPath);
@@ -99,14 +64,7 @@ class NotificationService: UNNotificationServiceExtension {
       RemoveEmbedAppExtensionsPhase(path, project, mainTarget);
       project.WriteToFile(projectPath);
 
-      File.WriteAllText(entitlementsExtensionPath, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
-"<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n" +
-"<plist version=\"1.0\">\n" +
-"<dict>\n" +
-"  <key>aps-environment</key>\n" +
-"  <string>production</string>\n" +
-"</dict>\n" +
-"</plist>");
+      File.WriteAllText(entitlementsExtensionPath, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n<plist version=\"1.0\">\n<dict>\n  <key>aps-environment</key>\n  <string>production</string>\n</dict>\n</plist>\n");
 
       var extensionCapabilityManager = new ProjectCapabilityManager(
           projectPath,
