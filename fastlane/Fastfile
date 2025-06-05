@@ -2,17 +2,17 @@ org, repo = (ENV["GITHUB_REPOSITORY"] || "").split("/")
 match_org, match_repo = (ENV["MATCH_REPOSITORY"] || "").split("/")
 
 def wait_for_podfile(timeout: 120)
-  podfile_path = "#{ENV['IOS_BUILD_PATH']}/iOS/Podfile"
+  marker_path = "#{ENV['IOS_BUILD_PATH']}/iOS/podfile_ready"
   waited = 0
-  until File.exist?(podfile_path) || waited >= timeout
+  until File.exist?(marker_path) || waited >= timeout
     sleep 1
     waited += 1
   end
-  if File.exist?(podfile_path)
-    UI.message("✅ Podfile found after #{waited} seconds")
+  if File.exist?(marker_path)
+    UI.message("✅ Podfile init завершён через #{waited} секунд")
     true
   else
-    UI.important("⚠️ Podfile not found after #{timeout} seconds")
+    UI.important("⚠️ Podfile init не завершился за #{timeout} секунд")
     false
   end
 end
