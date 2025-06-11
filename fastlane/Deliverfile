@@ -1,5 +1,15 @@
+# App Store deployment configuration
 submit_for_review false
 automatic_release false
 force true
 skip_screenshots true
 run_precheck_before_submit false
+
+# Skip metadata upload to avoid conflicts
+skip_metadata true
+
+# Export compliance
+submission_information({
+  export_compliance_uses_encryption: false,
+  export_compliance_is_exempt: true
+})

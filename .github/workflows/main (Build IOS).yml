@@ -4,7 +4,7 @@ on: [workflow_dispatch]
 
 jobs:
   buildForAllSupportedPlatforms:
-    name: Build for ${{ matrix.targetPlatform }} on ${{ matrix.unityVersion }}
+    name: Build for ${{ matrix.targetPlatform }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -14,8 +14,7 @@ jobs:
         os:
           - ubuntu-latest
         targetPlatform:
-          - iOS # Build an iOS player.
-          #- Android # Build an Android .apk standalone app.
+          - iOS
     steps:
       ###########################
       #        Checkout         #
@@ -82,16 +81,12 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: Build-${{ matrix.targetPlatform }}
-          path: build/${{ matrix.targetPlatform }}
-
-      ###################
+          path: build/${{ matrix.targetPlatform }}      ###################
       #  xcode-version  #
       ###################
       - uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: '16.2.0'
-
-      ###########################################
+          xcode-version: '15.4.0'      ###########################################
       #  Fix File Permissions and Run fastlane  #
       ###########################################
       - name: Fix File Permissions and Run fastlane
@@ -112,15 +107,25 @@ jobs:
           IOS_BUILD_PATH: ${{ format('{0}/build/iOS', github.workspace) }}
           IOS_BUNDLE_ID: com.jrxkw.ptmlyqsd
           APP_VERSION: "11.0"
-          PROJECT_NAME: BSon - Score Counting
+          PROJECT_NAME: "BSon - Score Counting"
         run: |
+          echo "Checking environment variables..."
+          if [ -z "$APPLE_TEAM_ID" ]; then echo "❌ APPLE_TEAM_ID is missing"; exit 1; fi
+          if [ -z "$IOS_BUNDLE_ID" ]; then echo "❌ IOS_BUNDLE_ID is missing"; exit 1; fi
+          if [ -z "$APPSTORE_P8" ]; then echo "❌ APPSTORE_P8 is missing"; exit 1; fi
+          
+          echo "Setting up SSH for match..."
           eval "$(ssh-agent -s)"
           ssh-add - <<< "${MATCH_DEPLOY_KEY}"
+          
+          echo "Setting file permissions..."
           find $IOS_BUILD_PATH -type f -name "**.sh" -exec chmod +x {} \;
+          
+          echo "Installing bundle dependencies..."
           bundle install
-          #bundle exec fastlane ios release
+          
+          echo "Running fastlane beta lane..."
           bundle exec fastlane ios beta
-          #bundle exec fastlane ios build
 
       ####################################
       #  Cleanup to avoid storage limit  #

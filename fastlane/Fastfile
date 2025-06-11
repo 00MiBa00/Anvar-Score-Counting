@@ -1,10 +1,10 @@
 org, repo = (ENV["GITHUB_REPOSITORY"]||"").split("/")
 match_org, match_repo = (ENV["MATCH_REPOSITORY"]||"").split("/")
 
-#before_all do
-  # Встановити і використати певну версію Xcode
-#  xcversion(version: "14.2.0")
-#end
+before_all do
+  # Ensure we use compatible Xcode version for Unity 2022.3.33f1
+  xcversion(version: "15.4") if is_ci
+end
 
 platform :ios do
   lane :init_ci do
@@ -51,47 +51,55 @@ platform :ios do
       run_precheck_before_submit: false
     )
   end
-
   desc "Deliver a new Beta build to Apple TestFlight"
   lane :beta do
-    # Missing Export Compliance can also be set through Deliverfile
-    update_info_plist(
-      xcodeproj: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj",
-      plist_path: 'Info.plist',
-      block: proc do |plist|
-        plist['ITSAppUsesNonExemptEncryption'] = false
-      end
-    )
+    begin
+      # Missing Export Compliance can also be set through Deliverfile
+      update_info_plist(
+        xcodeproj: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj",
+        plist_path: 'Info.plist',
+        block: proc do |plist|
+          plist['ITSAppUsesNonExemptEncryption'] = false
+        end
+      )
 
-    # Update iOS Deployment Target
-    update_info_plist(
-      xcodeproj: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj",
-      plist_path: 'Info.plist',
-      block: proc do |plist|
-        plist['MinimumOSVersion'] = '11.0'
-        plist['NSLocationWhenInUseUsageDescription'] = 'Allow access to location for app usage' # Добавив ось цей фрагмент, адже проблеми із скачуванням із тест флая
-      end
-    )
+      # Update iOS Deployment Target
+      update_info_plist(
+        xcodeproj: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj",
+        plist_path: 'Info.plist',
+        block: proc do |plist|
+          plist['MinimumOSVersion'] = '11.0'
+          plist['NSLocationWhenInUseUsageDescription'] = 'Allow access to location for app usage'
+        end
+      )
 
-    build
-    upload_to_testflight(skip_waiting_for_build_processing: true)
+      build
+      upload_to_testflight(skip_waiting_for_build_processing: true)
+    rescue => ex
+      UI.error("Beta deployment failed: #{ex}")
+      UI.error("Stacktrace: #{ex.backtrace.join("\n")}")
+      raise ex
+    end
   end
 
   desc "List Provisioning Profiles"
   lane :list_profiles do
     sh "security find-identity -v -p codesigning"
   end
-
   desc "Install cocoapods"
-    lane :install_pods do
+  lane :install_pods do
+    begin
       cocoapods(
-          clean: true,
-          use_bundle_exec: false,
-          repo_update: true,
-          podfile: "#{ENV['IOS_BUILD_PATH']}/iOS/Podfile"
-    )
+        clean: true,
+        use_bundle_exec: false,
+        repo_update: true,
+        podfile: "#{ENV['IOS_BUILD_PATH']}/iOS/Podfile"
+      )
+    rescue => ex
+      UI.error("CocoaPods installation failed: #{ex}")
+      UI.important("Continuing without CocoaPods...")
+    end
   end
-
   desc "Create .ipa"
   lane :build do
     setup_ci
@@ -101,23 +109,7 @@ platform :ios do
     # Unity has specific requirements around codesigning that we have to handle
     # See https://github.com/fastlane/fastlane/discussions/17458 for context
    
-    # Automatic Signing for Unity-iPhone Target
-    update_code_signing_settings(
-      use_automatic_signing: true,
-      path: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj"
-    )
-
-    # Manual Signing for OneSignalNotificationServiceExtension
-    #update_code_signing_settings(
-    #  use_automatic_signing: false,
-    #  team_id: ENV["sigh_#{ENV['IOS_BUNDLE_ID']}_appstore_team-id"],
-    #  code_sign_identity: "iPhone Distribution",
-    #  targets: "OneSignalNotificationServiceExtension",
-    #  path: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj",
-    #  profile_name: ENV["sigh_#{ENV['IOS_BUNDLE_ID']}.OneSignalNotificationServiceExtension_appstore_profile-name"],
-    #  profile_uuid: ENV["sigh_#{ENV['IOS_BUNDLE_ID']}.OneSignalNotificationServiceExtension_appstore"]
-    #)
-
+    # Use manual signing for Unity projects to avoid conflicts
     update_code_signing_settings(
       use_automatic_signing: false,
       team_id: ENV["sigh_#{ENV['IOS_BUNDLE_ID']}_appstore_team-id"],
@@ -129,28 +121,32 @@ platform :ios do
     )
 
     # Update version & build number
-     version_number = ENV['APP_VERSION'] || '1.0.0'
-     increment_version_number(version_number: version_number, xcodeproj: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj")
-     increment_build_number({ build_number: latest_testflight_build_number(version: version_number, app_identifier: ENV['IOS_BUNDLE_ID']) + 1, xcodeproj: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj"}) 
+    version_number = ENV['APP_VERSION'] || '1.0.0'
+    increment_version_number(version_number: version_number, xcodeproj: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj")
+    increment_build_number({ build_number: latest_testflight_build_number(version: version_number, app_identifier: ENV['IOS_BUNDLE_ID']) + 1, xcodeproj: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj"}) 
     
-    # Install pods
-    #install_pods
+    # Install pods if Podfile exists
+    if File.exist?("#{ENV['IOS_BUILD_PATH']}/iOS/Podfile")
+      install_pods
+    end
 
-    build_app( #alias: gym
-      #workspace: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcworkspace",
-      project: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj",
+    # Check if workspace exists (created by CocoaPods)
+    workspace_path = "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcworkspace"
+    project_path = "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj"
+    
+    build_app(
+      workspace: File.exist?(workspace_path) ? workspace_path : nil,
+      project: File.exist?(workspace_path) ? nil : project_path,
       scheme: 'Unity-iPhone',
       xcargs: '-allowProvisioningUpdates',
-      #destination: 'generic/platform=iOS' # Виправити формат
-      #destination: "platform=iOS Simulator, id=0FA23C4A-0E4A-4F03-9F6C-32122603E2DA, OS=16.2, name=iPhone 14"
       export_options: {
         method: 'app-store',
-        uploadBitcode: false, # Вимкнути біткод
-        compileBitcode: false, # Вимкнути компіляцію біткоду
-        #uploadSymbols: true,
-        #provisioningProfiles: {
-        #  'com.TestCI.TestCI': 'Match AppStore com.TestCI.TestCI'
-        #}
+        uploadBitcode: false,
+        compileBitcode: false,
+        uploadSymbols: true,
+        provisioningProfiles: {
+          ENV['IOS_BUNDLE_ID'] => ENV["sigh_#{ENV['IOS_BUNDLE_ID']}_appstore_profile-name"]
+        }
       }
     )
   end
