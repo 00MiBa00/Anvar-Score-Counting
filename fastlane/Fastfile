@@ -1,22 +1,23 @@
-org, repo = (ENV["GITHUB_REPOSITORY"]||"").split("/")
-match_org, match_repo = (ENV["MATCH_REPOSITORY"]||"").split("/")
+org, repo = (ENV["GITHUB_REPOSITORY"] || "").split("/")
+match_org, match_repo = (ENV["MATCH_REPOSITORY"] || "").split("/")
 
-#before_all do
-  # Встановити і використати певну версію Xcode
-#  xcversion(version: "14.2.0")
-#end
+def wait_for_podfile(timeout: 120)
+  marker_path = "#{ENV['IOS_BUILD_PATH']}/iOS/podfile_ready"
+  waited = 0
+  until File.exist?(marker_path) || waited >= timeout
+    sleep 1
+    waited += 1
+  end
+  if File.exist?(marker_path)
+    UI.message("✅ Podfile init завершён через #{waited} секунд")
+    true
+  else
+    UI.important("⚠️ Podfile init не завершился за #{timeout} секунд")
+    false
+  end
+end
 
 platform :ios do
-  lane :init_ci do
-    github_action(
-      api_token: ENV["GH_PAT"],
-      org: org,
-      repo: repo,
-      match_org: match_org,
-      match_repo: match_repo,
-      writable_deploy_key: true
-    )
-  end
 
   desc "Sync codesigning certificates"
   lane :sync_certificates do
@@ -27,54 +28,37 @@ platform :ios do
     )
 
     main_app_bundle_id = ENV["IOS_BUNDLE_ID"]
-    #extension_bundle_id = "#{ENV["IOS_BUNDLE_ID"]}.OneSignalNotificationServiceExtension"
+    extension_bundle_id = "#{main_app_bundle_id}.notifications"
 
     match(
       type: "appstore",
       storage_mode: "git",
       git_url: "git@github.com:#{match_org}/#{match_repo}.git",
-      #app_identifier: [main_app_bundle_id, extension_bundle_id],
-      app_identifier: [main_app_bundle_id],
+      app_identifier: [main_app_bundle_id, extension_bundle_id],
       readonly: false
     )
   end
 
-  desc "Deliver a new Release build to the App Store"
-  lane :release do
-    build
-    deliver
-    upload_to_app_store(
-      submit_for_review: false,
-      automatic_release: false,
-      force: true,
-      skip_screenshots: true,
-      run_precheck_before_submit: false
+  desc "Install cocoapods"
+  lane :install_pods do
+    cocoapods(
+      clean: true,
+      use_bundle_exec: false,
+      repo_update: true,
+      podfile: "#{ENV['IOS_BUILD_PATH']}/iOS/Podfile"
     )
   end
 
-  desc "Deliver a new Beta build to Apple TestFlight"
-  lane :beta do
-    # Missing Export Compliance can also be set through Deliverfile
-    update_info_plist(
-      xcodeproj: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj",
-      plist_path: 'Info.plist',
-      block: proc do |plist|
-        plist['ITSAppUsesNonExemptEncryption'] = false
-      end
-    )
+  desc "Run pod install manually in iOS folder"
+  lane :prepare_pods do
+    podfile_path = "#{ENV['IOS_BUILD_PATH']}/iOS/Podfile"
+    unless File.exist?(podfile_path)
+      UI.user_error!("🚫 Podfile не найден после Unity сборки — проверь InitPodFile")
+    end
 
-    # Update iOS Deployment Target
-    update_info_plist(
-      xcodeproj: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj",
-      plist_path: 'Info.plist',
-      block: proc do |plist|
-        plist['MinimumOSVersion'] = '11.0'
-        plist['NSLocationWhenInUseUsageDescription'] = 'Allow access to location for app usage' # Добавив ось цей фрагмент, адже проблеми із скачуванням із тест флая
-      end
-    )
-
-    build
-    upload_to_testflight(skip_waiting_for_build_processing: true)
+    Dir.chdir("#{ENV['IOS_BUILD_PATH']}/iOS") do
+      sh("pod install")
+    end
   end
 
   desc "List Provisioning Profiles"
@@ -82,77 +66,134 @@ platform :ios do
     sh "security find-identity -v -p codesigning"
   end
 
-  desc "Install cocoapods"
-    lane :install_pods do
-      cocoapods(
-          clean: true,
-          use_bundle_exec: false,
-          repo_update: true,
-          podfile: "#{ENV['IOS_BUILD_PATH']}/iOS/Podfile"
-    )
+  desc "Remove duplicate Info.plist from notifications extension"
+  lane :fix_notifications_info_plist do
+    require 'xcodeproj'
+
+    project_path = "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj"
+    UI.user_error!("🚫 Xcode project not found at: #{project_path}") unless File.exist?(project_path)
+
+    project = Xcodeproj::Project.open(project_path)
+
+    target = project.targets.find { |t| t.name == "notifications" }
+    unless target
+      UI.important("⚠️ Target 'notifications' not found in #{project_path}")
+      next
+    end
+
+    resources_phase = target.build_phases.find { |bp| bp.display_name == "Copy Bundle Resources" }
+    unless resources_phase
+      UI.important("⚠️ 'Copy Bundle Resources' phase not found in target 'notifications'")
+      next
+    end
+
+    file_ref = project.files.find { |f| f.path == "NotificationService/Info.plist" }
+    unless file_ref
+      UI.important("⚠️ File 'NotificationService/Info.plist' not found in project")
+      next
+    end
+
+    if resources_phase.file_ref?(file_ref)
+      resources_phase.remove_file_reference(file_ref)
+      project.save
+      UI.message("✅ Removed duplicate Info.plist from Copy Bundle Resources in 'notifications' target")
+    else
+      UI.important("ℹ️ 'NotificationService/Info.plist' not present in Copy Bundle Resources - nothing to do")
+    end
+  end
+
+  desc "Deliver a new Beta build to Apple TestFlight"
+  lane :beta do
+    xcodeproj_path = "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj"
+    unless File.exist?(xcodeproj_path)
+      UI.user_error!("❌ Xcode project not found at: #{xcodeproj_path}")
+    end
+
+    build
+    upload_to_testflight(skip_waiting_for_build_processing: true)
   end
 
   desc "Create .ipa"
   lane :build do
-    setup_ci
-    sync_certificates
-    list_profiles
+    begin
+      setup_ci
+      sync_certificates
+      list_profiles
 
-    # Unity has specific requirements around codesigning that we have to handle
-    # See https://github.com/fastlane/fastlane/discussions/17458 for context
-   
-    # Automatic Signing for Unity-iPhone Target
-    update_code_signing_settings(
-      use_automatic_signing: true,
-      path: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj"
-    )
+      xcodeproj_path = "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj"
+      unless File.exist?(xcodeproj_path)
+        UI.user_error!("❌ Xcode project not found at: #{xcodeproj_path}")
+      end
 
-    # Manual Signing for OneSignalNotificationServiceExtension
-    #update_code_signing_settings(
-    #  use_automatic_signing: false,
-    #  team_id: ENV["sigh_#{ENV['IOS_BUNDLE_ID']}_appstore_team-id"],
-    #  code_sign_identity: "iPhone Distribution",
-    #  targets: "OneSignalNotificationServiceExtension",
-    #  path: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj",
-    #  profile_name: ENV["sigh_#{ENV['IOS_BUNDLE_ID']}.OneSignalNotificationServiceExtension_appstore_profile-name"],
-    #  profile_uuid: ENV["sigh_#{ENV['IOS_BUNDLE_ID']}.OneSignalNotificationServiceExtension_appstore"]
-    #)
+      update_code_signing_settings(
+        use_automatic_signing: true,
+        path: xcodeproj_path
+      )
 
-    update_code_signing_settings(
-      use_automatic_signing: false,
-      team_id: ENV["sigh_#{ENV['IOS_BUNDLE_ID']}_appstore_team-id"],
-      code_sign_identity: 'iPhone Distribution',
-      targets: 'Unity-iPhone',
-      path: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj",
-      profile_name: ENV["sigh_#{ENV['IOS_BUNDLE_ID']}_appstore_profile-name"],
-      profile_uuid: ENV["sigh_#{ENV['IOS_BUNDLE_ID']}_appstore"]
-    )
+      update_code_signing_settings(
+        use_automatic_signing: false,
+        team_id: ENV["sigh_#{ENV['IOS_BUNDLE_ID']}_appstore_team-id"],
+        code_sign_identity: 'iPhone Distribution',
+        targets: 'Unity-iPhone',
+        path: xcodeproj_path,
+        profile_name: ENV["sigh_#{ENV['IOS_BUNDLE_ID']}_appstore_profile-name"],
+        profile_uuid: ENV["sigh_#{ENV['IOS_BUNDLE_ID']}_appstore"]
+      )
 
-    # Update version & build number
-     version_number = ENV['APP_VERSION'] || '1.0.0'
-     increment_version_number(version_number: version_number, xcodeproj: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj")
-     increment_build_number({ build_number: latest_testflight_build_number(version: version_number, app_identifier: ENV['IOS_BUNDLE_ID']) + 1, xcodeproj: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj"}) 
-    
-    # Install pods
-    #install_pods
+      update_code_signing_settings(
+        use_automatic_signing: false,
+        team_id: ENV["sigh_#{ENV['IOS_BUNDLE_ID']}.notifications_appstore_team-id"],
+        code_sign_identity: 'iPhone Distribution',
+        targets: 'notifications',
+        path: xcodeproj_path,
+        profile_name: ENV["sigh_#{ENV['IOS_BUNDLE_ID']}.notifications_appstore_profile-name"],
+        profile_uuid: ENV["sigh_#{ENV['IOS_BUNDLE_ID']}.notifications_appstore"]
+      )
 
-    build_app( #alias: gym
-      #workspace: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcworkspace",
-      project: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcodeproj",
-      scheme: 'Unity-iPhone',
-      xcargs: '-allowProvisioningUpdates',
-      #destination: 'generic/platform=iOS' # Виправити формат
-      #destination: "platform=iOS Simulator, id=0FA23C4A-0E4A-4F03-9F6C-32122603E2DA, OS=16.2, name=iPhone 14"
-      export_options: {
-        method: 'app-store',
-        uploadBitcode: false, # Вимкнути біткод
-        compileBitcode: false, # Вимкнути компіляцію біткоду
-        #uploadSymbols: true,
-        #provisioningProfiles: {
-        #  'com.TestCI.TestCI': 'Match AppStore com.TestCI.TestCI'
-        #}
-      }
-    )
+      version_number = ENV['APP_VERSION'] || '1.0.0'
+      increment_version_number(version_number: version_number, xcodeproj: xcodeproj_path)
+
+      last_build = latest_testflight_build_number(
+        version: version_number,
+        app_identifier: ENV['IOS_BUNDLE_ID']
+      ).to_i
+      increment_build_number(
+        build_number: last_build + 1,
+        xcodeproj: xcodeproj_path
+      )
+
+      UI.message("📡 Ожидание Podfile: #{ENV['IOS_BUILD_PATH']}/iOS/Podfile")
+      sh("ls -la #{ENV['IOS_BUILD_PATH']}/iOS || echo '❌ Папка не найдена'")
+
+      if wait_for_podfile
+        prepare_pods
+        install_pods
+      else
+        UI.user_error!("🚫 Podfile not found — stopping build")
+      end
+
+      fix_notifications_info_plist
+
+      build_app(
+        workspace: "#{ENV['IOS_BUILD_PATH']}/iOS/Unity-iPhone.xcworkspace",
+        scheme: 'Unity-iPhone',
+        xcargs: '-allowProvisioningUpdates',
+        export_options: {
+          method: 'app-store',
+          uploadBitcode: false,
+          compileBitcode: false,
+          provisioningProfiles: {
+            "#{ENV['IOS_BUNDLE_ID']}" => ENV["sigh_#{ENV['IOS_BUNDLE_ID']}_appstore_profile-name"],
+            "#{ENV['IOS_BUNDLE_ID']}.notifications" => ENV["sigh_#{ENV['IOS_BUNDLE_ID']}.notifications_appstore_profile-name"]
+          }
+        }
+      )
+
+    rescue => ex
+      UI.error("❌ Build failed: #{ex}")
+      sh("mkdir -p #{ENV['IOS_BUILD_PATH']}/logs")
+      sh("cp ~/Library/Logs/gym/ScoreCounting-Unity-iPhone.log #{ENV['IOS_BUILD_PATH']}/logs/build_fail.log || echo 'Log not found'")
+      raise ex
+    end
   end
-
 end
